@@ -2,6 +2,31 @@
 
 Dates are in UTC.
 
+## [Unreleased] (2026-06-09)
+
+### Added
+- Added locale units configuration (default: metric) for distance, speed, and elevation.
+- Completed full migration of frontend application to Vue 3 Composition API.
+- Implemented Tailwind CSS and removed extensive legacy SCSS code.
+- Added Pinia for robust state management, replacing legacy Vuex store files.
+- Added dynamic color assignments per user route, ensuring high-contrast colors distinct from terrain.
+- Introduced custom circular map markers to replace static SVG pins, complete with initials and Tracker IDs.
+- Display real-time dynamic user activity glyphs (Driving, Cycling, Walking) on map markers using `motionactivities` payload.
+- Automatically track and render live route lines efficiently as new points stream via WebSockets without heavy API reloads.
+- Upgraded the pop-up modal to gracefully display current Activity states and Velocity.
+- Implemented an option to hide stale map markers older than 48 hours within "Display settings".
+- Guaranteed that individually selected users bypass the stale marker filter to always display.
+- Enhanced Date Picker with additional shortcuts for "4 hours", "8 hours", and "12 hours".
+- Implemented rapid interval-shifting Left/Right arrow navigation to quickly skip through time blocks.
+- Added a new real-time Play/Pause button in the header to easily suspend live websocket ingestion.
+- Implemented automatic real-time ticking for the `endDateTime` display while streaming live data.
+- Automatically pause real-time updates when shifting or selecting a historic time window entirely in the past.
+
+### Changed
+- Converted core components (`AppHeader.vue`, `Map.vue`, `LDeviceLocationPopup.vue`, `LHeatmap.vue`) to native `<script setup>` syntax.
+- Completely rebuilt map rendering logic to be proxy-aware and avoid infinite recursion crashes with Leaflet and Vue 3.
+- Renamed "Layer settings" button to "Display settings" for better clarity.
+
 ## 2.15.3 (2024-06-15)
 
 - Force relative path for `config/config.js` even if it doesn't exist at build time

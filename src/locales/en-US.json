@@ -28,6 +28,7 @@
   "Cancel": "Cancel",
   "Image of {deviceName}": "Image of {deviceName}",
   "Timestamp": "Timestamp",
+  "Last seen": "Last seen",
   "Location": "Location",
   "Address": "Address",
   "Battery": "Battery",
@@ -44,5 +45,19 @@
   "30 days": "30 days",
   "3 months": "3 months",
   "6 months": "6 months",
-  "1 year": "1 year"
+  "1 year": "1 year",
+  "km/h": "km/h",
+  "mph": "mph",
+  "m": "m",
+  "km": "km",
+  "ft": "ft",
+  "mi": "mi",
+  "date_time_format": "YYYY-MM-DD HH:mm",
+  "range_separator": " – ",
+  "/": "/",
+  "layers.last": "Show last known locations",
+  "layers.line": "Show location history (line)",
+  "layers.points": "Show location history (points)",
+  "layers.heatmap": "Show location heatmap",
+  "layers.poi": "Show points of interest"
 }

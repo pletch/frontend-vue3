@@ -71,6 +71,7 @@ window.owntracks.config = {};
 - [`selectedUser`](#selecteduser)
 - [`showDistanceTravelled`](#showdistancetravelled)
 - [`startDateTime`](#startdatetime)
+- [`units`](#units)
 - [`verbose`](#verbose)
 
 ### `api.baseUrl`
@@ -208,7 +209,7 @@ Attribution for map tiles.
 ### `map.circle`
 
 Location accuracy indicator configuation. `color` and `fillColor` default to
-`primaryColor` if `null`. See [Vue2Leaflet `l-circle` documentation](https://vue2-leaflet.netlify.app/components/LCircle.html)
+`primaryColor` if `null`. See @vue-leaflet/vue-leaflet `l-circle` documentation
 for all possible values.
 
 - Type: [`Object`]
@@ -224,7 +225,7 @@ for all possible values.
 ### `map.circleMarker`
 
 Location point marker configuation. `color` defaults to `primaryColor` if `null`. See
-[Vue2Leaflet `l-circle-marker` documentation](https://vue2-leaflet.netlify.app/components/LCircleMarker.html)
+@vue-leaflet/vue-leaflet `l-circle-marker` documentation
 for all possible values.
 
 - Type: [`Object`]
@@ -391,7 +392,7 @@ to disable.
 
 ### `map.poiMarker`
 
-POI marker configuration. See [Vue2Leaflet `l-circle-marker` documentation](https://vue2-leaflet.netlify.app/components/LCircleMarker.html)
+POI marker configuration. See @vue-leaflet/vue-leaflet `l-circle-marker` documentation
 for all possible values.
 
 - Type: [`Object`]
@@ -408,7 +409,7 @@ for all possible values.
 ### `map.polyline`
 
 Location point marker configuration. `color` defaults to `primaryColor` if `null`. See
-[Vue2Leaflet `l-polyline` documentation](https://vue2-leaflet.netlify.app/components/LPolyline.html)
+@vue-leaflet/vue-leaflet `l-polyline` documentation
 for all possible values.
 
 - Type: [`Object`]
@@ -562,6 +563,26 @@ Initial start date and time (browser timezone) for fetched data.
   startDateTime.setDate(1);
   window.owntracks.config = {
     startDateTime,
+  };
+  ```
+
+### `units`
+
+Unit system used for speed, distance and altitude displays. Speed is shown as
+km/h or mph, distance switches between m / km or ft / mi, and altitude is
+shown in m or ft.
+
+When set to `null` (the default), the unit system is derived from
+[`locale`](#locale): `en-US` defaults to imperial, every other locale defaults
+to metric. Set this option explicitly to override the locale-based guess.
+
+- Type: [`String`] (`"metric"` or `"imperial"`) or `null`
+- Default: `null`
+- Example:
+  ```js
+  // Force imperial units regardless of the configured locale
+  window.owntracks.config = {
+    units: "imperial",
   };
   ```
 

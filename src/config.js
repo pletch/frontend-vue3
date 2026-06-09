@@ -62,8 +62,8 @@ const DEFAULT_CONFIG = {
     maxPointDistance: null,
     maxZoom: 21,
     poiMarker: {
-      color: "red",
-      fillColor: "red",
+      color: null,
+      fillColor: null,
       fillOpacity: 0.2,
       radius: 12,
     },
@@ -87,6 +87,7 @@ const DEFAULT_CONFIG = {
   selectedUser: null,
   showDistanceTravelled: true,
   startDateTime,
+  units: null,
   verbose: false,
 };
 

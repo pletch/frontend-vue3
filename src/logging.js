@@ -1,24 +1,31 @@
-import config from "@/config";
-
-export const logLevels = {
-  INFO: "INFO",
-  WARNING: "WARNING",
-  ERROR: "ERROR",
-};
+/**
+ * Log levels as constants.
+ * We use individual exports to avoid TDZ issues with objects.
+ */
+export const LOG_INFO = "INFO";
+export const LOG_WARNING = "WARNING";
+export const LOG_ERROR = "ERROR";
 
 /* eslint-disable no-console */
-const logFunctions = {
-  [logLevels.INFO]: console.info,
-  [logLevels.WARNING]: console.warn,
-  [logLevels.ERROR]: console.error,
-};
-/* eslint-enable no-console */
+function getLogStyle(level) {
+  // Lazy-access config to avoid circular dependency issues during module evaluation
+  const config = (window.owntracks && window.owntracks.config) || {};
+  const primaryColor = config.primaryColor || "#3f51b5";
 
-const logColors = {
-  [logLevels.INFO]: "#0d66ba",
-  [logLevels.WARNING]: "#cf8429",
-  [logLevels.ERROR]: "#ad1515",
-};
+  var logColors = {
+    [LOG_INFO]: primaryColor,
+    [LOG_WARNING]: "#cf8429",
+    [LOG_ERROR]: "#ad1515",
+  };
+
+  return `
+    background: ${logColors[level] || "#999"};
+    border-radius: 5px;
+    color: #fff;
+    padding: 3px;
+  `;
+}
+/* eslint-enable no-console */
 
 /**
  * Log a message to the browser's console.
@@ -30,24 +37,32 @@ const logColors = {
  * @param {String|LogMessageFunction} message Log message
  * @param {String} [level] Log level, use `logLevels` constants
  */
-export const log = (label, message, level = logLevels.INFO) => {
-  if (!Object.keys(logLevels).includes(level)) {
-    log("WARNING", `invalid log level: ${level}`, logLevels.WARNING);
+export function log(label, message, level = LOG_INFO) {
+  const config = (window.owntracks && window.owntracks.config) || {};
+
+  if (
+    level !== LOG_INFO &&
+    level !== LOG_WARNING &&
+    level !== LOG_ERROR
+  ) {
+    console.warn(`[logging] invalid log level: ${level}`, label);
     return;
   }
-  if (level !== logLevels.ERROR && !config.verbose) {
+
+  if (level !== LOG_ERROR && !config.verbose) {
     return;
   }
-  const css = `
-  background: ${logColors[level]};
-  border-radius: 5px;
-  color: #fff;
-  padding: 3px;
-  `;
-  const logFunc = logFunctions[level];
+
+  const logFunc = {
+    [LOG_INFO]: console.info,
+    [LOG_WARNING]: console.warn,
+    [LOG_ERROR]: console.error,
+  }[level] || console.log;
+  /* eslint-enable no-console */
+
   logFunc(
     `%c${label}`,
-    css,
+    getLogStyle(level),
     typeof message === "function" ? message() : message
   );
-};
+}

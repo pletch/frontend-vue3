@@ -1,138 +1,246 @@
 <template>
-  <div />
+  <div style="display: none"></div>
 </template>
 
-<script>
-// See https://github.com/KoRiGaN/Vue2Leaflet/blob/e0cf0f29bc519f0a70f0f1eb6e579f947e7ea4ce/src/utils/utils.js
-// to understand the `custom` attribute of each prop, how the `set<Prop>`
-// methods are being used and why `mapObject` has to be named `mapObject`.
+<script setup>
+import { onMounted, onBeforeUnmount, watch, inject, computed } from "vue";
+import L from "leaflet";
 
-import { findRealParent, propsBinder } from "vue2-leaflet";
-import L, { DomEvent } from "leaflet";
-import "leaflet.heat";
-
-const props = {
-  latLng: {
-    type: Array,
-    default: () => [],
-    custom: false,
-  },
-  minOpacity: {
-    type: Number,
-    custom: true,
-    default: 0.05,
-  },
-  maxZoom: {
-    type: Number,
-    custom: true,
-    default: 18,
-  },
-  radius: {
-    type: Number,
-    custom: true,
-    default: 25,
-  },
-  blur: {
-    type: Number,
-    custom: true,
-    default: 15,
-  },
-  max: {
-    type: Number,
-    custom: true,
-    default: 1.0,
-  },
-  gradient: {
-    type: Object,
-    custom: true,
-    default: null,
-  },
-  visible: {
-    type: Boolean,
-    custom: true,
-    default: true,
-  },
-  activated: {
-    type: Boolean,
-    custom: true,
-    default: true,
-  },
-};
-
-export default {
-  props,
-  mounted() {
-    const options = {};
-    if (this.minOpacity) {
-      options.minOpacity = this.minOpacity;
-    }
-    if (this.maxZoom) {
-      options.maxZoom = this.maxZoom;
-    }
-    if (this.radius) {
-      options.radius = this.radius;
-    }
-    if (this.blur) {
-      options.blur = this.blur;
-    }
-    if (this.max) {
-      options.max = this.max;
-    }
-    if (this.gradient) {
-      options.gradient = this.gradient;
-    }
-    this.mapObject = L.heatLayer(this.latLng, options);
-    DomEvent.on(this.mapObject, this.$listeners);
-    propsBinder(this, this.mapObject, props);
-    this.parentContainer = findRealParent(this.$parent);
-    this.parentContainer.addLayer(this, !this.visible);
-    this.$watch(
-      "latLng",
-      (newVal) => {
-        this.mapObject.setLatLngs(newVal);
-      },
-      { deep: true }
-    );
-  },
-  beforeDestroy() {
-    this.parentContainer.removeLayer(this);
-  },
-  methods: {
-    setMinOpacity(minOpacity) {
-      this.mapObject.setOptions({ minOpacity });
+/**
+ * Leaflet.heat plugin logic
+ * Standard implementation of Leaflet.heat (v0.2.0)
+ */
+const simpleheat = (function () {
+  function simpleheat(canvas) {
+    if (!(this instanceof simpleheat)) return new simpleheat(canvas);
+    this._canvas = canvas = typeof canvas === "string" ? document.getElementById(canvas) : canvas;
+    this._ctx = canvas.getContext("2d");
+    this._width = canvas.width;
+    this._height = canvas.height;
+    this._max = 1;
+    this.clear();
+  }
+  simpleheat.prototype = {
+    defaultRadius: 25,
+    defaultGradient: { 0.4: "blue", 0.6: "cyan", 0.7: "lime", 0.8: "yellow", 1: "red" },
+    data: function (data) { this._data = data; return this; },
+    max: function (max) { this._max = max; return this; },
+    add: function (point) { this._data.push(point); return this; },
+    clear: function () { this._data = []; return this; },
+    radius: function (r, blur) {
+      blur = blur || 15;
+      var circle = (this._circle = document.createElement("canvas")),
+        ctx = circle.getContext("2d"),
+        r2 = (this._r = r + blur);
+      circle.width = circle.height = r2 * 2;
+      ctx.shadowOffsetX = ctx.shadowOffsetY = 200;
+      ctx.shadowBlur = blur;
+      ctx.shadowColor = "black";
+      ctx.beginPath();
+      ctx.arc(r2 - 200, r2 - 200, r, 0, Math.PI * 2, true);
+      ctx.closePath();
+      ctx.fill();
+      return this;
     },
-    setMaxZoom(maxZoom) {
-      this.mapObject.setOptions({ maxZoom });
+    gradient: function (grad) {
+      var canvas = document.createElement("canvas"),
+        ctx = canvas.getContext("2d"),
+        gradient = ctx.createLinearGradient(0, 0, 0, 256);
+      canvas.width = 1;
+      canvas.height = 256;
+      for (var i in grad) { gradient.addColorStop(i, grad[i]); }
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 1, 256);
+      this._grad = ctx.getImageData(0, 0, 1, 256).data;
+      return this;
     },
-    setRadius(radius) {
-      this.mapObject.setOptions({ radius });
+    draw: function (minOpacity) {
+      if (!this._circle) this.radius(this.defaultRadius);
+      if (!this._grad) this.gradient(this.defaultGradient);
+      var ctx = this._ctx;
+      ctx.clearRect(0, 0, this._width, this._height);
+      for (var i = 0, len = this._data.length, p; i < len; i++) {
+        p = this._data[i];
+        ctx.globalAlpha = Math.max(p[2] / this._max, minOpacity || 0.05);
+        ctx.drawImage(this._circle, p[0] - this._r, p[1] - this._r);
+      }
+      var colored = ctx.getImageData(0, 0, this._width, this._height);
+      this._colorize(colored.data, this._grad);
+      ctx.putImageData(colored, 0, 0);
+      return this;
     },
-    setBlur(blur) {
-      this.mapObject.setOptions({ blur });
-    },
-    setMax(max) {
-      this.mapObject.setOptions({ max });
-    },
-    setGradient(gradient) {
-      this.mapObject.setOptions({ gradient });
-    },
-    setVisible(newVal, oldVal) {
-      if (newVal === oldVal) return;
-      if (newVal) {
-        this.parentContainer.addLayer(this);
-      } else {
-        this.parentContainer.removeLayer(this);
+    _colorize: function (pixels, gradient) {
+      for (var i = 3, len = pixels.length, j; i < len; i += 4) {
+        j = pixels[i] * 4;
+        if (j) {
+          pixels[i - 3] = gradient[j];
+          pixels[i - 2] = gradient[j + 1];
+          pixels[i - 1] = gradient[j + 2];
+        }
       }
     },
-    addLatLng(value) {
-      this.mapObject.addLatLng(value);
-    },
-  },
-};
-</script>
+  };
+  return simpleheat;
+})();
 
-<style scoped>
-div {
-  display: none;
+if (!L.HeatLayer) {
+  L.HeatLayer = (L.Layer ? L.Layer : L.Class).extend({
+    initialize: function (latlngs, options) { this._latlngs = latlngs; L.setOptions(this, options); },
+    setLatLngs: function (latlngs) { this._latlngs = latlngs; return this.redraw(); },
+    addLatLng: function (latlng) { this._latlngs.push(latlng); return this.redraw(); },
+    setOptions: function (options) { L.setOptions(this, options); if (this._heat) { this._updateOptions(); } return this.redraw(); },
+    redraw: function () { if (this._heat && !this._frame && !this._map._animating) { this._frame = L.Util.requestAnimFrame(this._redraw, this); } return this; },
+    onAdd: function (map) {
+      this._map = map;
+      if (!this._canvas) { this._initCanvas(); }
+      map._panes.overlayPane.appendChild(this._canvas);
+      map.on("moveend", this._reset, this);
+      if (map.options.zoomAnimation && L.Browser.any3d) { map.on("zoomanim", this._animateZoom, this); }
+      this._reset();
+    },
+    onRemove: function (map) {
+      map.getPanes().overlayPane.removeChild(this._canvas);
+      map.off("moveend", this._reset, this);
+      if (map.options.zoomAnimation) { map.off("zoomanim", this._animateZoom, this); }
+    },
+    addTo: function (map) { map.addLayer(this); return this; },
+    _initCanvas: function () {
+      var canvas = (this._canvas = L.DomUtil.create("canvas", "leaflet-heatmap-layer leaflet-layer"));
+      var originProp = L.DomUtil.testProp(["transformOrigin", "WebkitTransformOrigin", "msTransformOrigin"]);
+      canvas.style[originProp] = "50% 50%";
+      var size = this._map.getSize();
+      canvas.width = size.x;
+      canvas.height = size.y;
+      var animated = this._map.options.zoomAnimation && L.Browser.any3d;
+      L.DomUtil.addClass(canvas, "leaflet-zoom-" + (animated ? "animated" : "hide"));
+      this._heat = simpleheat(canvas);
+      this._updateOptions();
+    },
+    _updateOptions: function () {
+      this._heat.radius(this.options.radius || this._heat.defaultRadius, this.options.blur);
+      if (this.options.gradient) { this._heat.gradient(this.options.gradient); }
+      if (this.options.max) { this._heat.max(this.options.max); }
+    },
+    _reset: function () {
+      var topLeft = this._map.containerPointToLayerPoint([0, 0]);
+      L.DomUtil.setPosition(this._canvas, topLeft);
+      var size = this._map.getSize();
+      if (this._heat._width !== size.x) { this._canvas.width = this._heat._width = size.x; }
+      if (this._heat._height !== size.y) { this._canvas.height = this._heat._height = size.y; }
+      this._redraw();
+    },
+    _redraw: function () {
+      if (!this._map) return;
+      var data = [], r = this._heat._r, size = this._map.getSize(),
+        bounds = new L.Bounds(L.point([-r, -r]), size.add([r, r])),
+        max = this.options.max === undefined ? 1 : this.options.max,
+        maxZoom = this.options.maxZoom === undefined ? this._map.getMaxZoom() : this.options.maxZoom,
+        v = 1 / Math.pow(2, Math.max(0, Math.min(maxZoom - this._map.getZoom(), 12))),
+        gridSize = r / 2, grid = [], panePos = this._map._getMapPanePos(),
+        offsetX = panePos.x % gridSize, offsetY = panePos.y % gridSize,
+        i, len, p, cell, x, y, j, len2;
+      for (i = 0, len = this._latlngs.length; i < len; i++) {
+        p = this._map.latLngToContainerPoint(this._latlngs[i]);
+        if (bounds.contains(p)) {
+          x = Math.floor((p.x - offsetX) / gridSize) + 2; y = Math.floor((p.y - offsetY) / gridSize) + 2;
+          var alt = this._latlngs[i].alt !== undefined ? this._latlngs[i].alt : (this._latlngs[i][2] !== undefined ? +this._latlngs[i][2] : 1);
+          p.z = alt * v; grid[y] = grid[y] || []; cell = grid[y][x];
+          if (!cell) { grid[y][x] = [p.x, p.y, p.z]; }
+          else { cell[0] = (cell[0] * cell[2] + p.x * p.z) / (cell[2] + p.z); cell[1] = (cell[1] * cell[2] + p.y * p.z) / (cell[2] + p.z); cell[2] += p.z; }
+        }
+      }
+      for (i = 0, len = grid.length; i < len; i++) {
+        if (grid[i]) {
+          for (j = 0, len2 = grid[i].length; j < len2; j++) {
+            cell = grid[i][j];
+            if (cell) { data.push([Math.round(cell[0]), Math.round(cell[1]), Math.min(cell[2], max)]); }
+          }
+        }
+      }
+      this._heat.data(data).draw(this.options.minOpacity);
+      this._frame = null;
+    },
+    _animateZoom: function (e) {
+      var scale = this._map.getZoomScale(e.zoom),
+        offset = this._map._getCenterOffset(e.center)._multiplyBy(-scale).subtract(this._map._getMapPanePos());
+      if (L.DomUtil.setTransform) { L.DomUtil.setTransform(this._canvas, offset, scale); }
+      else { this._canvas.style[L.DomUtil.TRANSFORM] = L.DomUtil.getTranslateString(offset) + " scale(" + scale + ")"; }
+    },
+  });
+  L.heatLayer = function (latlngs, options) { return new L.HeatLayer(latlngs, options); };
 }
-</style>
+
+const props = defineProps({
+  latLng: { type: Array, default: () => [] },
+  minOpacity: { type: Number, default: 0.05 },
+  maxZoom: { type: Number, default: 18 },
+  radius: { type: Number, default: 25 },
+  blur: { type: Number, default: 15 },
+  max: { type: Number, default: 1.0 },
+  gradient: { type: Object, default: null },
+  visible: { type: Boolean, default: true },
+});
+
+const formattedPoints = computed(() =>
+  props.latLng.map((p) =>
+    Array.isArray(p) ? p : [p.lat, p.lng ?? p.lon, p.alt ?? p[2] ?? 1]
+  )
+);
+
+const mapInstance = inject("map");
+let mapObject = null;
+
+watch(mapInstance, (m) => {
+  if (m && !mapObject) {
+    const options = {
+      minOpacity: props.minOpacity,
+      maxZoom: props.maxZoom,
+      radius: props.radius,
+      blur: props.blur,
+      max: props.max,
+      gradient: props.gradient,
+    };
+    mapObject = L.heatLayer(formattedPoints.value, options);
+
+    if (props.visible) {
+      mapObject.addTo(m);
+    }
+  }
+}, { immediate: true });
+
+onBeforeUnmount(() => {
+  if (mapObject) {
+    mapObject.remove();
+  }
+});
+
+watch(formattedPoints, (newVal) => {
+  if (mapObject) {
+    mapObject.setLatLngs(newVal);
+  }
+});
+
+watch(() => props.visible, (newVal) => {
+  const m = mapInstance?.value;
+  if (mapObject && m) {
+    if (newVal) {
+      mapObject.addTo(m);
+    } else {
+      m.removeLayer(mapObject);
+    }
+  }
+});
+
+watch(() => [props.minOpacity, props.maxZoom, props.radius, props.blur, props.max, props.gradient], () => {
+  if (mapObject) {
+    mapObject.setOptions({
+      minOpacity: props.minOpacity,
+      maxZoom: props.maxZoom,
+      radius: props.radius,
+      blur: props.blur,
+      max: props.max,
+      gradient: props.gradient,
+    });
+  }
+});
+</script>

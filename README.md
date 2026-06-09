@@ -13,7 +13,7 @@
 ## Introduction
 
 This is a web interface for [OwnTracks](https://github.com/owntracks/recorder) built as
-a Vue.js single page application. The recorder itself already ships with some basic web
+a Vue 3 single page application. The recorder itself already ships with some basic web
 pages, this is a more advanced interface with more functionality, all in one place.
 
 ![Map features](https://raw.githubusercontent.com/owntracks/frontend/main/docs/images/map-features.png)
@@ -136,7 +136,7 @@ Finally update `api.baseUrl` in your config to `"http://0.0.0.0:8888/https://own
 
 ### I18n
 
-This project uses [Vue I18n](https://kazupon.github.io/vue-i18n/). To see missing and
+This project uses [Vue I18n](https://vue-i18n.intlify.dev/). To see missing and
 unused i18n entries, run:
 
 ```console

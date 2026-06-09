@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import config from "@/config";
 import {
@@ -6,7 +6,9 @@ import {
   isIsoDateTime,
   degreesToRadians,
   distanceBetweenCoordinates,
+  humanReadableAltitude,
   humanReadableDistance,
+  humanReadableSpeed,
 } from "@/util";
 
 describe("getApiUrl", () => {
@@ -114,7 +116,16 @@ describe("distanceBetweenCoordinates", () => {
 });
 
 describe("humanReadableDistance", () => {
-  test("expected results", () => {
+  let originalUnits;
+  beforeEach(() => {
+    originalUnits = config.units;
+    config.units = "metric";
+  });
+  afterEach(() => {
+    config.units = originalUnits;
+  });
+
+  test("metric", () => {
     expect(humanReadableDistance(0)).toBe("0 m");
     expect(humanReadableDistance(1)).toBe("1 m");
     expect(humanReadableDistance(123)).toBe("123 m");
@@ -129,5 +140,77 @@ describe("humanReadableDistance", () => {
     expect(humanReadableDistance(9999.9999)).toBe("10 km");
     expect(humanReadableDistance(100000)).toBe("100 km");
     expect(humanReadableDistance(-42)).toBe("-42 m");
+  });
+
+  test("imperial", () => {
+    config.units = "imperial";
+    expect(humanReadableDistance(0)).toBe("0 ft");
+    // 1 m ≈ 3.28 ft → rounds to "3 ft"
+    expect(humanReadableDistance(1)).toBe("3 ft");
+    // 1609.344 m = 1 mi exactly
+    expect(humanReadableDistance(1609.344)).toBe("1 mi");
+    // Just under a mile stays in ft
+    expect(humanReadableDistance(1609)).toBe("5,279 ft");
+    // 10 km ≈ 6.2 mi
+    expect(humanReadableDistance(10000)).toBe("6.2 mi");
+    expect(humanReadableDistance(100000)).toBe("62.1 mi");
+    // Negative distances keep their sign and switch correctly
+    expect(humanReadableDistance(-100)).toBe("-328 ft");
+  });
+
+  test("auto-derives imperial from en-US locale when units unset", () => {
+    config.units = null;
+    // setup uses en-US, so this should fall back to imperial
+    expect(humanReadableDistance(0)).toBe("0 ft");
+  });
+});
+
+describe("humanReadableSpeed", () => {
+  let originalUnits;
+  beforeEach(() => {
+    originalUnits = config.units;
+  });
+  afterEach(() => {
+    config.units = originalUnits;
+  });
+
+  test("metric", () => {
+    config.units = "metric";
+    expect(humanReadableSpeed(0)).toBe("0 km/h");
+    expect(humanReadableSpeed(50)).toBe("50 km/h");
+    expect(humanReadableSpeed(50.27)).toBe("50.3 km/h");
+  });
+
+  test("imperial", () => {
+    config.units = "imperial";
+    expect(humanReadableSpeed(0)).toBe("0 mph");
+    // 100 km/h ≈ 62.1 mph
+    expect(humanReadableSpeed(100)).toBe("62.1 mph");
+    expect(humanReadableSpeed(1)).toBe("0.6 mph");
+  });
+});
+
+describe("humanReadableAltitude", () => {
+  let originalUnits;
+  beforeEach(() => {
+    originalUnits = config.units;
+  });
+  afterEach(() => {
+    config.units = originalUnits;
+  });
+
+  test("metric stays in meters even for large values", () => {
+    config.units = "metric";
+    expect(humanReadableAltitude(0)).toBe("0 m");
+    expect(humanReadableAltitude(100)).toBe("100 m");
+    expect(humanReadableAltitude(8848)).toBe("8,848 m");
+  });
+
+  test("imperial stays in feet even for large values", () => {
+    config.units = "imperial";
+    // 100 m ≈ 328 ft
+    expect(humanReadableAltitude(100)).toBe("328 ft");
+    // 8848 m ≈ 29029 ft (Everest)
+    expect(humanReadableAltitude(8848)).toBe("29,029 ft");
   });
 });

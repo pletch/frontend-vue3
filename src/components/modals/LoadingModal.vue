@@ -1,49 +1,34 @@
 <template>
-  <modal name="loading" :click-to-close="false" adaptive>
-    <LoaderIcon class="loader-icon" size="1.5x" />
-    {{ $t("Loading data, please wait...") }}
-    <br />
-    <button
-      type="button"
-      class="button button-primary button-cancel"
-      @click="requestAbortController.abort()"
+  <teleport to="body">
+    <div
+      v-if="locationStore.isLoading"
+      class="fixed inset-0 bg-black/40 flex items-center justify-center z-[2000]"
     >
-      {{ $t("Cancel") }}
-    </button>
-  </modal>
+      <div class="bg-white p-6 rounded-md shadow-xl max-w-[90%] w-[320px] border border-separator text-center">
+        <LoaderIcon class="w-8 h-8 mx-auto mb-4 text-primary animate-spin" />
+        <p class="mb-6 text-lg text-gray-800">{{ $t("Loading data, please wait...") }}</p>
+        <button
+          class="btn-primary"
+          type="button"
+          @click="cancelRequest"
+        >
+          {{ $t("Cancel") }}
+        </button>
+      </div>
+    </div>
+  </teleport>
 </template>
 
-<script>
-import { mapState } from "vuex";
-import { LoaderIcon } from "vue-feather-icons";
+<script setup>
+import { useLocationStore } from "@/store/location";
+import { LoaderIcon } from "lucide-vue-next";
 
-export default {
-  components: {
-    LoaderIcon,
-  },
-  computed: {
-    ...mapState(["requestAbortController"]),
-  },
+const locationStore = useLocationStore();
+
+const cancelRequest = () => {
+  if (locationStore.requestAbortController) {
+    locationStore.requestAbortController.abort();
+  }
 };
 </script>
-
-<style scoped>
-.loader-icon {
-  animation: spinning 2s linear infinite;
-  margin-right: 5px;
-}
-
-.button-cancel {
-  display: block;
-  margin: 20px auto 0;
-}
-
-@keyframes spinning {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-</style>
+<style lang="scss" scoped></style>

@@ -81,9 +81,10 @@ interface Config {
     verbose: boolean;
 }
 
-/** Vuex state. */
+/** Pinia state. */
 interface State {
     isLoading: boolean;
+    isInformationModalVisible: boolean;
     frontendVersion: string;
     recorderVersion: string;
     users: User[];
@@ -92,6 +93,14 @@ interface State {
     locationHistory: LocationHistory;
     selectedUser: User | null;
     selectedDevice: Device | null;
+    units: "metric" | "imperial" | null;
+    layers: {
+        heatmap: boolean;
+        last: boolean;
+        line: boolean;
+        poi: boolean;
+        points: boolean;
+    };
     startDateTime: string;
     endDateTime: string;
     map: {
@@ -99,15 +108,13 @@ interface State {
             lat: number;
             lng: number;
         };
-        layers: {
-            heatmap: boolean;
-            last: boolean;
-            line: boolean;
-            poi: boolean;
-            points: boolean;
-        };
         zoom: number;
     };
+    distanceTravelled: number;
+    elevationGain: number;
+    elevationLoss: number;
+    fitViewToggle: boolean;
+    requestAbortController: AbortController | null;
 }
 
 /**
@@ -235,7 +242,7 @@ interface QueryParams {
 }
 
 /** Callback for new WebSocket location messages. */
-interface WebSocketLocationCallback { (): void }
+interface WebSocketLocationCallback { (location: OTLocation): void }
 
 /** Function for lazy evaluation of log messages. */
 interface LogMessageFunction { (): string }

@@ -1,5 +1,5 @@
 import config from "@/config";
-import { log, logLevels } from "@/logging";
+import { log, LOG_WARNING, LOG_ERROR } from "@/logging";
 import { getApiUrl, getLocationHistoryCount } from "@/util";
 
 /**
@@ -11,7 +11,7 @@ import { getApiUrl, getLocationHistoryCount } from "@/util";
  *   fetch() options (merged with config.api.fetchOptions)
  * @returns {Promise<Response>} Response returned by the fetch call
  */
-const fetchApi = (path, params = {}, fetchOptions = {}) => {
+function fetchApi(path, params = {}, fetchOptions = {}) {
   const url = getApiUrl(path);
   Object.keys(params).forEach((key) => url.searchParams.set(key, params[key]));
   log("HTTP", `GET ${url.href}`);
@@ -20,19 +20,19 @@ const fetchApi = (path, params = {}, fetchOptions = {}) => {
     ...config.api.fetchOptions,
   }).catch((error) => {
     if (error.name === "AbortError") {
-      log("HTTP", `GET ${url.href} - Request was aborted`, logLevels.WARNING);
+      log("HTTP", `GET ${url.href} - Request was aborted`, LOG_WARNING);
     } else {
-      log("HTTP", error, logLevels.ERROR);
+      log("HTTP", error, LOG_ERROR);
     }
   });
-};
+}
 
 /**
  * Get the recorder's version.
  *
  * @returns {Promise<String>} Version
  */
-export const getVersion = async () => {
+export async function getVersion() {
   const response = await fetchApi("/api/0/version");
   const json = await response.json();
   const version = json.version;
@@ -45,7 +45,7 @@ export const getVersion = async () => {
  *
  * @returns {Promise<User[]>} Array of usernames
  */
-export const getUsers = async () => {
+export async function getUsers() {
   const response = await fetchApi("/api/0/list");
   const json = await response.json();
   const users = json.results;
@@ -60,7 +60,7 @@ export const getUsers = async () => {
  * @returns {Promise<{User: Device[]}>}
  *   Object mapping each username to an array of device names
  */
-export const getDevices = async (users) => {
+export async function getDevices(users) {
   const devices = {};
   await Promise.all(
     users.map(async (user) => {
@@ -89,7 +89,7 @@ export const getDevices = async (users) => {
  * @param {Device} [device] Get last location of specific device
  * @returns {Promise<OTLocation[]>} Array of last location objects
  */
-export const getLastLocations = async (user, device) => {
+export async function getLastLocations(user, device) {
   const params = {};
   if (user) {
     params["user"] = user;
@@ -117,13 +117,7 @@ export const getLastLocations = async (user, device) => {
  * @param {Object} [fetchOptions] fetch() options
  * @returns {Promise<OTLocation[]>} Array of location history objects
  */
-export const getUserDeviceLocationHistory = async (
-  user,
-  device,
-  start,
-  end,
-  fetchOptions
-) => {
+export async function getUserDeviceLocationHistory(user, device, start, end, fetchOptions) {
   const response = await fetchApi(
     "/api/0/locations",
     {
@@ -149,7 +143,7 @@ export const getUserDeviceLocationHistory = async (
       `${user}/${device} from ${start} - ${end}`
   );
   return userDeviceLocationHistory;
-};
+}
 
 /**
  * Get the location history of multiple devices.
@@ -161,7 +155,7 @@ export const getUserDeviceLocationHistory = async (
  * @param {Object} [fetchOptions] fetch() options
  * @returns {Promise<LocationHistory>} Location history
  */
-export const getLocationHistory = async (devices, start, end, fetchOptions) => {
+export async function getLocationHistory(devices, start, end, fetchOptions) {
   const locationHistory = {};
   await Promise.all(
     Object.keys(devices).map(async (user) => {
@@ -187,7 +181,7 @@ export const getLocationHistory = async (devices, start, end, fetchOptions) => {
     );
   });
   return locationHistory;
-};
+}
 
 /**
  * Connect to the WebSocket API, reconnect when necessary and handle received
@@ -195,41 +189,53 @@ export const getLocationHistory = async (devices, start, end, fetchOptions) => {
  *
  * @param {WebSocketLocationCallback} [callback] Callback for location messages
  */
-export const connectWebsocket = async (callback) => {
+export async function connectWebsocket(callback, attempt = 0) {
   let url = getApiUrl("/ws/last");
   url.protocol = url.protocol.replace("http", "ws");
   url = url.href;
   const ws = new WebSocket(url);
   log("WS", `Connecting to ${url}`);
+
+  let connected = false;
   ws.onopen = () => {
+    connected = true;
     log("WS", "Connected");
     ws.send("LAST");
   };
+
+  ws.onerror = () => {
+    log("WS", "Connection error", LOG_ERROR);
+  };
+
   ws.onclose = (event) => {
+    const nextAttempt = connected ? 0 : attempt + 1;
+    const delay = Math.min(1000 * Math.pow(2, nextAttempt), 30000);
+
     log(
       "WS",
-      `Disconnected unexpectedly (reason: ${
+      `Disconnected (reason: ${
         event.reason || "unknown"
-      }). Reconnecting in one second.`,
-      logLevels.WARNING
+      }). Reconnecting in ${delay / 1000}s.`,
+      LOG_WARNING
     );
-    setTimeout(connectWebsocket, 1000);
+    setTimeout(() => connectWebsocket(callback, nextAttempt), delay);
   };
+
   ws.onmessage = async (msg) => {
     if (msg.data) {
       try {
         const data = JSON.parse(msg.data);
         if (data._type === "location") {
-          log("WS", "Location update received");
-          callback && (await callback());
+          log("WS", `Location update received for ${data.username}/${data.device}`);
+          callback && (await callback(data));
         }
       } catch (err) {
         if (msg.data !== "LAST") {
-          log("WS", err, logLevels.ERROR);
+          log("WS", err, LOG_ERROR);
         }
       }
     } else {
       log("WS", "Ping");
     }
   };
-};
+}

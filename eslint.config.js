@@ -10,7 +10,7 @@ const eslintrc = new FlatCompat({
 });
 
 export default [
-  ...eslintrc.extends("plugin:vue/essential"),
+  ...eslintrc.extends("plugin:vue/vue3-essential"),
   eslintPluginPrettierRecommended,
   {
     languageOptions: {
