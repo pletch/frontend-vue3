@@ -222,6 +222,11 @@ const fitView = () => {
 };
 
 watch(() => locationStore.fitViewToggle, fitView);
-watch(() => locationStore.lastLocations, () => config.onLocationChange.fitView && fitView(), { deep: true });
-watch(() => locationStore.locationHistory, fitView, { deep: true });
+watch(() => locationStore.lastLocations, () => {
+  if (config.onLocationChange?.fitView) fitView();
+}, { deep: true });
+watch(() => locationStore.locationHistory, () => {
+  // Always auto-fit when the entire history is explicitly reloaded (e.g. initial load or date change)
+  fitView();
+});
 </script>
