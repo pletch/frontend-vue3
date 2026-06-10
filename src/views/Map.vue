@@ -112,26 +112,28 @@ const renderMarkers = () => {
 };
 
 const getLinesGeoJSON = () => {
-  const features = locationStore.filteredLocationHistoryLatLngGroups.map(group => ({
-    type: 'Feature',
-    properties: {
-      color: getUserColor(group.user)
-    },
-    geometry: {
-      type: 'LineString',
-      coordinates: group.latLngs.map(latLng => [latLng[1], latLng[0]]) // [lng, lat]
-    }
-  }));
+  const features = locationStore.filteredLocationHistoryLatLngGroups
+    .filter(group => group.latLngs.length > 1)
+    .map(group => ({
+      type: 'Feature',
+      properties: {
+        color: getUserColor(group.user)
+      },
+      geometry: {
+        type: 'LineString',
+        coordinates: group.latLngs.map(ll => [ll.lng !== undefined ? ll.lng : ll[1], ll.lat !== undefined ? ll.lat : ll[0]]) // [lng, lat]
+      }
+    }));
 
   return { type: 'FeatureCollection', features };
 };
 
 const getHeatmapGeoJSON = () => {
-  const features = locationStore.filteredLocationHistoryLatLngs.map(latLng => ({
+  const features = locationStore.filteredLocationHistoryLatLngs.map(ll => ({
     type: 'Feature',
     geometry: {
       type: 'Point',
-      coordinates: [latLng[1], latLng[0]]
+      coordinates: [ll.lng !== undefined ? ll.lng : ll[1], ll.lat !== undefined ? ll.lat : ll[0]]
     }
   }));
 
@@ -366,7 +368,7 @@ const fitView = () => {
   
   if ((layers.line || layers.points || layers.poi || layers.heatmap) && historyLatLngs.length > 0) {
     const bounds = new maplibregl.LngLatBounds();
-    historyLatLngs.forEach(ll => bounds.extend([ll[1], ll[0]]));
+    historyLatLngs.forEach(ll => bounds.extend([ll.lng !== undefined ? ll.lng : ll[1], ll.lat !== undefined ? ll.lat : ll[0]]));
     map.fitBounds(bounds, { padding: 50 });
   } else if (layers.last && locationStore.lastLocations.length > 0) {
     const bounds = new maplibregl.LngLatBounds();
