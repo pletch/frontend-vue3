@@ -161,7 +161,7 @@
       </div>
       <div class="flex items-center px-1">
         <button
-          class="p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white text-white"
+          class="p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white text-white"
           type="button"
           :title="isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
           @click="toggleDark()"
