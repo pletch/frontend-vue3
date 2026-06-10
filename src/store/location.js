@@ -289,7 +289,7 @@ export const useLocationStore = defineStore("location", () => {
             location.acc > config.filters.minAccuracy
           )
             return;
-          const latLng = L.latLng(location.lat, location.lon, location.alt ?? 0);
+          const latLng = { lat: location.lat, lng: location.lon, alt: location.alt ?? 0 };
           if (lastLatLng !== null) {
             const distance = distanceBetweenCoordinates(lastLatLng, latLng);
             const elevationChange = latLng.alt - lastLatLng.alt;
