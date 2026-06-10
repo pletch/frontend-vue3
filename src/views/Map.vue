@@ -20,7 +20,6 @@
       />
       <l-tile-layer
         :url="config.map.url"
-        :class-name="isDark ? 'map-tiles-dark' : ''"
         :attribution="config.map.attribution"
         :tile-size="config.map.tileSize"
         :max-native-zoom="config.map.maxNativeZoom"
@@ -234,7 +233,7 @@ watch(() => locationStore.locationHistory, () => {
 });
 </script>
 <style>
-.map-tiles-dark {
+html.dark .leaflet-tile-pane {
   filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
 }
 </style>
