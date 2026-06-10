@@ -106,6 +106,23 @@
         </l-marker>
       </template>
 
+      <!-- Playback Ghost Marker -->
+      <l-circle-marker
+        v-if="locationStore.playbackPoint"
+        :lat-lng="[locationStore.playbackPoint.lat, locationStore.playbackPoint.lon]"
+        :radius="8"
+        color="#000"
+        fill-color="#f59e0b"
+        :fill-opacity="1"
+        :weight="3"
+        class="playback-ghost-marker"
+      >
+        <l-tooltip direction="top" :offset="[0, -10]">
+          <strong class="block mb-1">Playback</strong>
+          {{ new Date(locationStore.playbackPoint.tst * 1000).toLocaleString() }}
+        </l-tooltip>
+      </l-circle-marker>
+
       <!-- Heatmap Layer -->
       <l-heatmap
         v-if="locationStore.layers.heatmap && locationStore.filteredLocationHistoryLatLngs.length"

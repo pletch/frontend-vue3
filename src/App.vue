@@ -1,8 +1,9 @@
 <template>
-  <div id="app" class="flex flex-col h-screen overflow-hidden">
+  <div id="app" class="flex flex-col h-screen w-screen overflow-hidden text-sm sm:text-base font-sans text-gray-900 bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
     <AppHeader />
-    <main class="flex-grow relative overflow-hidden z-0">
+    <main class="relative flex-grow h-full w-full bg-gray-200 dark:bg-gray-800">
       <router-view />
+      <RoutePlayback />
     </main>
     <InformationModal />
     <LoadingModal />
@@ -17,6 +18,7 @@ import { useLocationStore } from "@/store/location";
 import config from "@/config";
 import { log } from "@/logging";
 import AppHeader from "@/components/AppHeader.vue";
+import RoutePlayback from "@/components/RoutePlayback.vue";
 import InformationModal from "@/components/modals/InformationModal.vue";
 import LoadingModal from "@/components/modals/LoadingModal.vue";
 
