@@ -385,7 +385,7 @@ onMounted(() => {
   map = new maplibregl.Map({
     container: mapContainer.value,
     style: currentStyle.value,
-    center: [locationStore.map.center[1], locationStore.map.center[0]], // [lng, lat]
+    center: [locationStore.map.center.lng || 0, locationStore.map.center.lat || 0], // [lng, lat]
     zoom: locationStore.map.zoom,
     attributionControl: false
   });
