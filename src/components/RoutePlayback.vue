@@ -63,4 +63,13 @@ watch(currentIndex, (val) => {
     locationStore.playbackPoint = point;
   }
 });
+
+watch(historyPoints, (newPoints) => {
+  if (newPoints.length === 0) {
+    pausePlayback();
+    locationStore.playbackPoint = null;
+  } else if (!newPoints[currentIndex.value]) {
+    currentIndex.value = 0;
+  }
+});
 </script>
