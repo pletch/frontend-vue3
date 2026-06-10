@@ -88,6 +88,23 @@ const getPopupProps = (user, device, location) => ({
   user, device, name: location.name, face: location.face, timestamp: location.tst, createdAt: location.created_at, isorcv: location.isorcv, isoLocal: location.isolocal, timeZone: location.tzname, lat: location.lat, lon: location.lon, alt: location.alt, battery: location.batt, batteryStatus: location.bs, speed: location.vel, regions: location.inregions, wifi: { ssid: location.SSID, bssid: location.BSSID }, address: location.addr, activity: Array.isArray(location.motionactivities) ? location.motionactivities.join(", ") : null
 });
 
+const MarkerComponent = {
+  props: ['color', 'initials', 'activity'],
+  setup(props) {
+    return () => h('div', {
+      class: 'relative flex items-center justify-center w-11 h-11 rounded-full text-white font-bold shadow-md border-2 border-white',
+      style: { backgroundColor: props.color }
+    }, [
+      props.initials,
+      props.activity ? h('div', {
+        class: `absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white ${props.activity.colorClass}`
+      }, [
+        h(props.activity.icon, { class: 'w-3 h-3' })
+      ]) : null
+    ])
+  }
+};
+
 const renderMarkers = () => {
   if (!map) return;
 
@@ -97,38 +114,34 @@ const renderMarkers = () => {
     const key = `marker-${location.username}-${location.device}`;
     currentKeys.add(key);
 
+    const color = getUserColor(location.username);
+    const initials = location.tid || location.username.substring(0, 2).toUpperCase();
+    const activity = getActivityIconDetails(location);
+    const popupProps = getPopupProps(location.username, location.device, location);
+
     if (activeMarkers.has(key)) {
-      // Update existing marker position
-      activeMarkers.get(key).marker.setLngLat([location.lon, location.lat]);
+      // Update existing marker position and contents
+      const data = activeMarkers.get(key);
+      data.marker.setLngLat([location.lon, location.lat]);
+      
+      // Update marker DOM
+      const markerVnode = h(MarkerComponent, { color, initials, activity });
+      render(markerVnode, data.marker.getElement());
+
+      // Update popup DOM
+      const popupVnode = h(LDeviceLocationPopup, popupProps);
+      popupVnode.appContext = instance.appContext;
+      render(popupVnode, data.popupContainer);
     } else {
-      // Create new DOM element for the pin
+      // Create new DOM elements for pin and popup
       const el = document.createElement('div');
-      
-      // Build raw HTML for the pin to save memory
-      const color = getUserColor(location.username);
-      const initials = location.tid || location.username.substring(0, 2).toUpperCase();
-      const activity = getActivityIconDetails(location);
-      
-      let activityHtml = '';
-      if (activity) {
-        // Simple raw html for activity icon
-        activityHtml = `<div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white ${activity.colorClass}">
-          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle></svg>
-        </div>`;
-      }
+      const markerVnode = h(MarkerComponent, { color, initials, activity });
+      render(markerVnode, el);
 
-      el.innerHTML = `
-        <div class="relative flex items-center justify-center w-11 h-11 rounded-full text-white font-bold shadow-md border-2 border-white" style="background-color: ${color}">
-          ${initials}
-          ${activityHtml}
-        </div>
-      `;
-
-      // Create Popup using Vue Component
       const popupContainer = document.createElement('div');
-      const vnode = h(LDeviceLocationPopup, getPopupProps(location.username, location.device, location));
-      vnode.appContext = instance.appContext;
-      render(vnode, popupContainer);
+      const popupVnode = h(LDeviceLocationPopup, popupProps);
+      popupVnode.appContext = instance.appContext;
+      render(popupVnode, popupContainer);
 
       const popup = new maplibregl.Popup({ offset: 25, className: 'maplibre-popup-custom' })
         .setDOMContent(popupContainer);
