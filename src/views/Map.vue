@@ -144,6 +144,57 @@ const getHeatmapGeoJSON = () => {
   return { type: 'FeatureCollection', features };
 };
 
+const createGeoJSONCircle = (center, radiusInMeters, points = 64) => {
+    const coords = { latitude: center[1], longitude: center[0] };
+    const km = radiusInMeters / 1000;
+    const ret = [];
+    const distanceX = km / (111.320 * Math.cos(coords.latitude * Math.PI / 180));
+    const distanceY = km / 110.574;
+
+    for(let i = 0; i < points; i++) {
+        const theta = (i / points) * (2 * Math.PI);
+        const x = distanceX * Math.cos(theta);
+        const y = distanceY * Math.sin(theta);
+        ret.push([coords.longitude + x, coords.latitude + y]);
+    }
+    ret.push(ret[0]); // close the polygon
+    return { type: 'Polygon', coordinates: [ret] };
+};
+
+const getAccuracyCirclesGeoJSON = () => {
+  const features = locationStore.filteredLastLocations.filter(l => l.acc).map(l => ({
+    type: 'Feature',
+    properties: { color: getUserColor(l.username) },
+    geometry: createGeoJSONCircle([l.lon, l.lat], l.acc)
+  }));
+  return { type: 'FeatureCollection', features };
+};
+
+const getPointsGeoJSON = () => {
+  const features = [];
+  Object.keys(locationStore.filteredLocationHistory).forEach(user => {
+    Object.keys(locationStore.filteredLocationHistory[user]).forEach(device => {
+      locationStore.filteredLocationHistory[user][device].forEach(location => {
+        if (locationStore.layers.poi && location.poi) {
+          features.push({
+            type: 'Feature',
+            properties: { type: 'poi', poi: location.poi, color: getUserColor(user) },
+            geometry: { type: 'Point', coordinates: [location.lon, location.lat] }
+          });
+        }
+        if (locationStore.layers.points) {
+          features.push({
+            type: 'Feature',
+            properties: { type: 'point', color: getUserColor(user) },
+            geometry: { type: 'Point', coordinates: [location.lon, location.lat] }
+          });
+        }
+      });
+    });
+  });
+  return { type: 'FeatureCollection', features };
+};
+
 const initSourcesAndLayers = () => {
   if (!map) return;
 
@@ -202,6 +253,82 @@ const initSourcesAndLayers = () => {
       }
     });
   }
+
+  // Accuracy Circles Source & Layer
+  if (!map.getSource('accuracy-circles')) {
+    map.addSource('accuracy-circles', { type: 'geojson', data: getAccuracyCirclesGeoJSON() });
+    map.addLayer({
+      id: 'accuracy-circles-layer',
+      type: 'fill',
+      source: 'accuracy-circles',
+      layout: { 'visibility': locationStore.layers.last ? 'visible' : 'none' },
+      paint: { 'fill-color': ['get', 'color'], 'fill-opacity': config.map.circle?.fillOpacity || 0.2 }
+    });
+    map.addLayer({
+      id: 'accuracy-circles-outline',
+      type: 'line',
+      source: 'accuracy-circles',
+      layout: { 'visibility': locationStore.layers.last ? 'visible' : 'none' },
+      paint: { 'line-color': ['get', 'color'], 'line-width': 1, 'line-opacity': 0.5 }
+    });
+  }
+
+  // Points Source & Layers
+  if (!map.getSource('history-points')) {
+    map.addSource('history-points', { type: 'geojson', data: getPointsGeoJSON() });
+    
+    // Regular History Points
+    map.addLayer({
+      id: 'history-points-layer',
+      type: 'circle',
+      source: 'history-points',
+      filter: ['==', 'type', 'point'],
+      layout: { 'visibility': locationStore.layers.points ? 'visible' : 'none' },
+      paint: {
+        'circle-radius': config.map.circleMarker?.radius || 4,
+        'circle-color': ['get', 'color'],
+        'circle-stroke-width': 1,
+        'circle-stroke-color': '#ffffff'
+      }
+    });
+
+    // POI Markers
+    map.addLayer({
+      id: 'history-poi-layer',
+      type: 'circle',
+      source: 'history-points',
+      filter: ['==', 'type', 'poi'],
+      layout: { 'visibility': locationStore.layers.poi ? 'visible' : 'none' },
+      paint: {
+        'circle-radius': config.map.poiMarker?.radius || 12,
+        'circle-color': ['get', 'color'],
+        'circle-opacity': config.map.poiMarker?.fillOpacity || 0.4,
+        'circle-stroke-width': 2,
+        'circle-stroke-color': ['get', 'color']
+      }
+    });
+
+    // POI Labels
+    map.addLayer({
+      id: 'history-poi-label-layer',
+      type: 'symbol',
+      source: 'history-points',
+      filter: ['==', 'type', 'poi'],
+      layout: {
+        'visibility': locationStore.layers.poi ? 'visible' : 'none',
+        'text-field': ['get', 'poi'],
+        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+        'text-size': 12,
+        'text-offset': [0, -1.5],
+        'text-anchor': 'bottom'
+      },
+      paint: {
+        'text-color': '#000000',
+        'text-halo-color': '#ffffff',
+        'text-halo-width': 2
+      }
+    });
+  }
 };
 
 const updateGeoJSON = () => {
@@ -219,6 +346,39 @@ const updateGeoJSON = () => {
   if (map.getLayer('history-heatmap-layer')) {
     map.setLayoutProperty('history-heatmap-layer', 'visibility', locationStore.layers.heatmap ? 'visible' : 'none');
   }
+  if (map.getLayer('accuracy-circles-layer')) {
+    map.setLayoutProperty('accuracy-circles-layer', 'visibility', locationStore.layers.last ? 'visible' : 'none');
+    map.setLayoutProperty('accuracy-circles-outline', 'visibility', locationStore.layers.last ? 'visible' : 'none');
+  }
+  if (map.getLayer('history-points-layer')) {
+    map.setLayoutProperty('history-points-layer', 'visibility', locationStore.layers.points ? 'visible' : 'none');
+  }
+  if (map.getLayer('history-poi-layer')) {
+    map.setLayoutProperty('history-poi-layer', 'visibility', locationStore.layers.poi ? 'visible' : 'none');
+    map.setLayoutProperty('history-poi-label-layer', 'visibility', locationStore.layers.poi ? 'visible' : 'none');
+  }
+  
+  const accuracySource = map.getSource('accuracy-circles');
+  if (accuracySource) accuracySource.setData(getAccuracyCirclesGeoJSON());
+
+  const pointsSource = map.getSource('history-points');
+  if (pointsSource) pointsSource.setData(getPointsGeoJSON());
+};
+
+const fitView = () => {
+  if (!map) return;
+  const { layers } = locationStore;
+  const historyLatLngs = locationStore.filteredLocationHistoryLatLngs;
+  
+  if ((layers.line || layers.points || layers.poi || layers.heatmap) && historyLatLngs.length > 0) {
+    const bounds = new maplibregl.LngLatBounds();
+    historyLatLngs.forEach(ll => bounds.extend([ll[1], ll[0]]));
+    map.fitBounds(bounds, { padding: 50 });
+  } else if (layers.last && locationStore.lastLocations.length > 0) {
+    const bounds = new maplibregl.LngLatBounds();
+    locationStore.lastLocations.forEach(l => bounds.extend([l.lon, l.lat]));
+    map.fitBounds(bounds, { padding: 50, maxZoom: config.map.maxNativeZoom || 16 });
+  }
 };
 
 onMounted(() => {
@@ -234,11 +394,13 @@ onMounted(() => {
 
   map.on('style.load', () => {
     initSourcesAndLayers();
+    fitView();
   });
 
   map.on('load', () => {
     renderMarkers();
     initSourcesAndLayers();
+    fitView();
   });
 });
 
@@ -259,6 +421,14 @@ watch([
 ], () => {
   updateGeoJSON();
 }, { deep: true });
+
+watch(() => locationStore.fitViewToggle, fitView);
+watch(() => locationStore.lastLocations, () => {
+  if (config.onLocationChange?.fitView) fitView();
+}, { deep: true });
+watch(() => locationStore.locationHistory, () => {
+  fitView();
+});
 
 onUnmounted(() => {
   if (map) map.remove();
