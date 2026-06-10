@@ -63,12 +63,6 @@ const renderMarkers = () => {
       // Create new DOM element for the pin
       const el = document.createElement('div');
       
-      const pinApp = createApp({
-        render: () => {
-          return null; // Will just manually build innerHTML for performance instead of full vue app for pin
-        }
-      });
-      
       // Build raw HTML for the pin to save memory
       const color = getUserColor(location.username);
       const initials = location.tid || location.username.substring(0, 2).toUpperCase();
@@ -385,7 +379,7 @@ onMounted(() => {
   map = new maplibregl.Map({
     container: mapContainer.value,
     style: currentStyle.value,
-    center: [locationStore.map.center.lng || 0, locationStore.map.center.lat || 0], // [lng, lat]
+    center: [parseFloat(locationStore.map.center.lng) || 0, parseFloat(locationStore.map.center.lat) || 0], // [lng, lat]
     zoom: locationStore.map.zoom,
     attributionControl: false
   });
