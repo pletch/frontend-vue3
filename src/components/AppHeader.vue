@@ -159,6 +159,17 @@
           {{ humanReadableDistance(locationStore.elevationLoss, locationStore.units) }}
         </span>
       </div>
+      <div class="flex items-center px-1">
+        <button
+          class="p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white text-white"
+          type="button"
+          :title="isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
+          @click="toggleDark()"
+        >
+          <MoonIcon v-if="!isDark" class="w-5 h-5" aria-hidden="true" role="img" />
+          <SunIcon v-else class="w-5 h-5" aria-hidden="true" role="img" />
+        </button>
+      </div>
       <div class="flex items-center px-2">
         <button
           class="p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white text-white"
@@ -176,7 +187,7 @@
 <script setup>
 import { ref, computed } from "vue";
 import { useLocationStore } from "@/store/location";
-import { useWindowSize } from "@vueuse/core";
+import { useWindowSize, useDark, useToggle } from "@vueuse/core";
 import { useI18n } from "vue-i18n";
 import config from "@/config";
 import {
@@ -189,9 +200,11 @@ import {
   InfoIcon,
   LayersIcon,
   MenuIcon,
+  MoonIcon,
   PauseIcon,
   PlayIcon,
   SmartphoneIcon,
+  SunIcon,
   UserIcon,
 } from "lucide-vue-next";
 import DatePicker from "vue-datepicker-next";
@@ -203,6 +216,9 @@ import moment from "moment";
 const locationStore = useLocationStore();
 const { t } = useI18n();
 const { width } = useWindowSize();
+
+const isDark = useDark();
+const toggleDark = useToggle(isDark);
 
 const layerSettingsOptions = [
   { layer: "last", label: "layers.last" },
