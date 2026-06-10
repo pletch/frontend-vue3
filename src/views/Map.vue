@@ -20,6 +20,7 @@
       />
       <l-tile-layer
         :url="currentTileUrl"
+        :class="{ 'brightness-125 contrast-75': isDark }"
         :attribution="config.map.attribution"
         :tile-size="config.map.tileSize"
         :max-native-zoom="config.map.maxNativeZoom"
