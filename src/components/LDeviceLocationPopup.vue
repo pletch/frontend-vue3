@@ -40,7 +40,8 @@
           <span>{{ address }}</span>
         </li>
         <li v-if="typeof battery === 'number'" :title="$t('Battery')" class="flex items-start space-x-3 text-sm text-gray-700">
-          <BatteryIcon class="w-4 h-4 flex-shrink-0 text-primary mt-0.5" aria-hidden="true" role="img" />
+          <BatteryChargingIcon v-if="batteryStatus === 2" class="w-4 h-4 flex-shrink-0 text-green-500 mt-0.5" aria-hidden="true" role="img" />
+          <BatteryIcon v-else class="w-4 h-4 flex-shrink-0 text-primary mt-0.5" aria-hidden="true" role="img" />
           <span>{{ battery }} %</span>
         </li>
         <li v-if="typeof speed === 'number'" :title="$t('Speed')" class="flex items-start space-x-3 text-sm text-gray-700">
@@ -74,6 +75,7 @@
 import { computed } from "vue";
 import {
   BatteryIcon,
+  BatteryChargingIcon,
   ClockIcon,
   HomeIcon,
   MapPinIcon,
@@ -147,6 +149,10 @@ const props = defineProps({
     default: null,
   },
   battery: {
+    type: Number,
+    default: null,
+  },
+  batteryStatus: {
     type: Number,
     default: null,
   },

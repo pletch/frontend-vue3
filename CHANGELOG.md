@@ -14,6 +14,7 @@ Dates are in UTC.
 - Display real-time dynamic user activity glyphs (Driving, Cycling, Walking) on map markers using `motionactivities` payload.
 - Automatically track and render live route lines efficiently as new points stream via WebSockets without heavy API reloads.
 - Upgraded the pop-up modal to gracefully display current Activity states and Velocity.
+- Parse Battery Status (`bs`) payload to dynamically display a green charging icon when device is plugged in.
 - Implemented an option to hide stale map markers older than 48 hours within "Display settings".
 - Guaranteed that individually selected users bypass the stale marker filter to always display.
 - Enhanced Date Picker with additional shortcuts for "4 hours", "8 hours", and "12 hours".
