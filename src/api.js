@@ -226,6 +226,20 @@ export async function connectWebsocket(callback, attempt = 0) {
       try {
         const data = JSON.parse(msg.data);
         if (data._type === "location") {
+          if (!data.username || !data.device) {
+            if (data.topic) {
+              const parts = data.topic.split("/");
+              // Assuming topic format: owntracks/username/device
+              if (parts.length >= 3) {
+                data.username = data.username || parts[parts.length - 2];
+                data.device = data.device || parts[parts.length - 1];
+              }
+            } else if (data.tid) {
+              // Fallback to tid if available and topic is missing
+              data.username = data.username || data.tid;
+              data.device = data.device || "device";
+            }
+          }
           log("WS", `Location update received for ${data.username}/${data.device}`);
           callback && (await callback(data));
         }
