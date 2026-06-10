@@ -73,6 +73,7 @@ const DEFAULT_CONFIG = {
     },
     tileSize: 256,
     url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    urlDark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
     zoomOffset: 0,
   },
   onLocationChange: {

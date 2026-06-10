@@ -19,7 +19,7 @@
         :imperial="config.map.controls.scale.imperial"
       />
       <l-tile-layer
-        :url="config.map.url"
+        :url="currentTileUrl"
         :attribution="config.map.attribution"
         :tile-size="config.map.tileSize"
         :max-native-zoom="config.map.maxNativeZoom"
@@ -118,6 +118,7 @@
 
 <script setup>
 import { ref, computed, watch, markRaw, provide } from "vue";
+import { useDark } from "@vueuse/core";
 import {
   LMap,
   LTileLayer,
@@ -142,6 +143,11 @@ import { PersonStandingIcon, BikeIcon, CarIcon } from "lucide-vue-next";
 
 const locationStore = useLocationStore();
 const mapRef = ref(null);
+const isDark = useDark();
+
+const currentTileUrl = computed(() => {
+  return isDark.value && config.map.urlDark ? config.map.urlDark : config.map.url;
+});
 
 provide("map", computed(() => mapRef.value?.leafletObject));
 let mapInstance = null;
