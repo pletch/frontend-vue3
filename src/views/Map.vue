@@ -125,9 +125,17 @@ const renderPlaybackMarker = () => {
     return;
   }
   
+  const activity = getActivityIconDetails(point);
+  
+  const vnode = h('div', {
+    class: 'w-6 h-6 rounded-full bg-amber-500 border-[3px] border-black shadow-md relative flex items-center justify-center text-black'
+  }, [
+    activity ? h(activity.icon, { class: 'w-4 h-4 text-black' }) : null
+  ]);
+
   if (!playbackMarker) {
     const el = document.createElement('div');
-    el.className = 'w-4 h-4 rounded-full bg-amber-500 border-[3px] border-black shadow-md relative';
+    render(vnode, el);
     
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10, className: 'playback-popup' })
       .setHTML(`<strong>Playback</strong><br>${new Date(point.tst * 1000).toLocaleString()}`);
@@ -139,6 +147,7 @@ const renderPlaybackMarker = () => {
       
     playbackMarker.togglePopup();
   } else {
+    render(vnode, playbackMarker.getElement());
     playbackMarker.setLngLat([point.lon, point.lat]);
     playbackMarker.getPopup().setHTML(`<strong>Playback</strong><br>${new Date(point.tst * 1000).toLocaleString()}`);
   }
