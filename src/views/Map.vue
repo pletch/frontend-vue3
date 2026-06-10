@@ -531,8 +531,9 @@ watch(() => locationStore.lastLocations, () => {
   if (config.onLocationChange?.fitView) fitView();
 }, { deep: true });
 watch(() => locationStore.locationHistory, () => {
+  updateGeoJSON();
   fitView();
-});
+}, { deep: true });
 watch(() => locationStore.playbackPoint, () => {
   renderPlaybackMarker();
 }, { deep: true });
