@@ -1,6 +1,25 @@
 <template>
   <div class="h-full w-full relative">
-    <div class="absolute inset-0" ref="mapContainer"></div>
+    <div v-if="!webglSupported" class="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 p-8 z-50">
+      <div class="bg-white dark:bg-gray-900 p-8 rounded-xl shadow-2xl max-w-lg text-center border border-gray-200 dark:border-gray-700">
+        <div class="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+          <MonitorXIcon class="w-8 h-8" />
+        </div>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Hardware Acceleration Required</h2>
+        <p class="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+          The OwnTracks high-performance map engine requires WebGL. It appears your browser does not support hardware acceleration, or it has been disabled.
+        </p>
+        <div class="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-4 rounded-lg text-sm text-left">
+          <strong class="block mb-1 font-semibold">How to fix this:</strong>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>Enable <strong>Hardware Acceleration</strong> in your browser settings.</li>
+            <li>Ensure your graphics drivers are up to date.</li>
+            <li>Try using a modern browser like Chrome, Firefox, or Safari.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div v-else class="absolute inset-0" ref="mapContainer"></div>
   </div>
 </template>
 
@@ -13,11 +32,12 @@ import config from "@/config";
 import { useDark } from "@vueuse/core";
 import { getUserColor, humanReadableSpeed, humanReadableAltitude } from "@/util";
 import LDeviceLocationPopup from "@/components/LDeviceLocationPopup.vue";
-import { PersonStandingIcon, BikeIcon, CarIcon } from "lucide-vue-next";
+import { PersonStandingIcon, BikeIcon, CarIcon, MonitorXIcon } from "lucide-vue-next";
 
 const mapContainer = ref(null);
 let map = null;
 const locationStore = useLocationStore();
+const webglSupported = maplibregl.supported();
 const isDark = useDark();
 const instance = getCurrentInstance();
 
@@ -441,6 +461,8 @@ const fitView = () => {
 };
 
 onMounted(() => {
+  if (!webglSupported) return;
+
   map = new maplibregl.Map({
     container: mapContainer.value,
     style: currentStyle.value,
