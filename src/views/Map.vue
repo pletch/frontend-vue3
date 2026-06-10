@@ -137,7 +137,7 @@ const renderPlaybackMarker = () => {
     const el = document.createElement('div');
     render(vnode, el);
     
-    const speed = point.vel ? humanReadableSpeed(point.vel, locationStore.units) : '0 km/h';
+    const speed = humanReadableSpeed(point.vel || 0, locationStore.units);
     const alt = point.alt !== undefined ? humanReadableAltitude(point.alt, locationStore.units) : '0 m';
     const time = new Date(point.tst * 1000).toLocaleString();
     const popupHtml = `<div class="text-gray-900 text-center">
@@ -158,7 +158,7 @@ const renderPlaybackMarker = () => {
     render(vnode, playbackMarker.getElement());
     playbackMarker.setLngLat([point.lon, point.lat]);
     
-    const speed = point.vel ? humanReadableSpeed(point.vel, locationStore.units) : '0 km/h';
+    const speed = humanReadableSpeed(point.vel || 0, locationStore.units);
     const alt = point.alt !== undefined ? humanReadableAltitude(point.alt, locationStore.units) : '0 m';
     const time = new Date(point.tst * 1000).toLocaleString();
     const popupHtml = `<div class="text-gray-900 text-center">
