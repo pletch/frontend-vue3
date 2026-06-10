@@ -453,12 +453,14 @@ onMounted(() => {
 
   map.on('style.load', () => {
     initSourcesAndLayers();
+    updateGeoJSON();
     fitView();
   });
 
   map.on('load', () => {
     renderMarkers();
     initSourcesAndLayers();
+    updateGeoJSON();
     fitView();
   });
 });
