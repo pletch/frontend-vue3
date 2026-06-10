@@ -19,8 +19,8 @@
         :imperial="config.map.controls.scale.imperial"
       />
       <l-tile-layer
-        :url="currentTileUrl"
-        :class="{ 'brightness-[2.0] contrast-[0.85]': isDark }"
+        :url="config.map.url"
+        :class-name="isDark ? 'map-tiles-dark' : ''"
         :attribution="config.map.attribution"
         :tile-size="config.map.tileSize"
         :max-native-zoom="config.map.maxNativeZoom"
@@ -146,10 +146,6 @@ const locationStore = useLocationStore();
 const mapRef = ref(null);
 const isDark = useDark();
 
-const currentTileUrl = computed(() => {
-  return isDark.value && config.map.urlDark ? config.map.urlDark : config.map.url;
-});
-
 provide("map", computed(() => mapRef.value?.leafletObject));
 let mapInstance = null;
 
@@ -237,3 +233,8 @@ watch(() => locationStore.locationHistory, () => {
   fitView();
 });
 </script>
+<style>
+.map-tiles-dark {
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+</style>
