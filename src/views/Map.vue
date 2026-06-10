@@ -361,6 +361,8 @@ const updateGeoJSON = () => {
   if (pointsSource) pointsSource.setData(getPointsGeoJSON());
 };
 
+let isFirstFitView = true;
+
 const fitView = () => {
   if (!map) return;
   const { layers } = locationStore;
@@ -369,11 +371,13 @@ const fitView = () => {
   if ((layers.line || layers.points || layers.poi || layers.heatmap) && historyLatLngs.length > 0) {
     const bounds = new maplibregl.LngLatBounds();
     historyLatLngs.forEach(ll => bounds.extend([ll.lng !== undefined ? ll.lng : ll[1], ll.lat !== undefined ? ll.lat : ll[0]]));
-    map.fitBounds(bounds, { padding: 50 });
+    map.fitBounds(bounds, { padding: 50, duration: isFirstFitView ? 0 : undefined });
+    isFirstFitView = false;
   } else if (layers.last && locationStore.lastLocations.length > 0) {
     const bounds = new maplibregl.LngLatBounds();
     locationStore.lastLocations.forEach(l => bounds.extend([l.lon, l.lat]));
-    map.fitBounds(bounds, { padding: 50, maxZoom: config.map.maxNativeZoom || 16 });
+    map.fitBounds(bounds, { padding: 50, maxZoom: config.map.maxNativeZoom || 16, duration: isFirstFitView ? 0 : undefined });
+    isFirstFitView = false;
   }
 };
 
