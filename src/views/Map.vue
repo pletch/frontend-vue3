@@ -31,7 +31,7 @@
       <template v-if="locationStore.layers.line">
         <l-polyline
           v-for="(group, index) in locationStore.filteredLocationHistoryLatLngGroups"
-          :key="`line-${index}`"
+          :key="`line-${group.user}-${group.device}-${index}`"
           :lat-lngs="group.latLngs"
           v-bind="{ ...polylineOptions, color: getUserColor(group.user) }"
         />
