@@ -1,7 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed, reactive } from "vue";
 import { useLocalStorage } from "@vueuse/core";
-import L from "leaflet";
 import config from "@/config";
 import * as api from "@/api";
 import { log } from "@/logging";
@@ -89,7 +88,7 @@ export const useLocationStore = defineStore("location", () => {
     Object.keys(history).forEach((user) => {
       Object.keys(history[user]).forEach((device) => {
         history[user][device].forEach((location) => {
-          latLngs.push(L.latLng(location.lat, location.lon));
+          latLngs.push({ lat: location.lat, lng: location.lon });
         });
       });
     });
@@ -103,7 +102,7 @@ export const useLocationStore = defineStore("location", () => {
       Object.keys(history[user]).forEach((device) => {
         let latLngs = [];
         history[user][device].forEach((location) => {
-          const latLng = L.latLng(location.lat, location.lon);
+          const latLng = { lat: location.lat, lng: location.lon };
           if (
             typeof config.map.maxPointDistance === "number" &&
             config.map.maxPointDistance > 0 &&
