@@ -15,15 +15,15 @@
 
   /* PERSISTENT UI COMPONENTS */
   .btn-primary {
-    @apply px-4 py-2 bg-primary text-white rounded shadow-sm font-medium hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary;
+    @apply px-4 py-2 bg-primary text-white rounded shadow-sm font-medium hover:opacity-90 transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary;
   }
 
   .btn-outline {
-    @apply inline-flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all shadow-sm;
+    @apply inline-flex items-center px-3 py-1.5 bg-white border border-gray-300 rounded text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary transition-all shadow-sm;
   }
 
   .form-select {
-    @apply block pl-3 pr-8 py-1.5 bg-white border border-gray-300 rounded text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all shadow-sm appearance-none cursor-pointer;
+    @apply block pl-3 pr-8 py-1.5 bg-white border border-gray-300 rounded text-sm text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary transition-all shadow-sm appearance-none cursor-pointer;
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
     background-position: right 0.5rem center;
     background-repeat: no-repeat;
@@ -31,7 +31,7 @@
   }
 
   .btn-icon-flat {
-    @apply p-2 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary text-gray-600;
+    @apply p-2 hover:bg-gray-100 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary text-gray-600;
   }
 
   /* DATEPICKER THEME OVERRIDES */

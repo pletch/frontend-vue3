@@ -2,7 +2,7 @@
   <header class="flex items-center justify-between px-4 h-[50px] bg-primary text-white shadow-sm sticky top-0 z-50">
     <div v-if="isSmallScreen" class="flex items-center px-2">
       <button
-        class="p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white text-white"
+        class="p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white text-white"
         type="button"
         @click="showMobileNav = !showMobileNav"
       >
@@ -59,7 +59,7 @@
       <div class="flex items-center space-x-1 px-2">
         <CalendarIcon class="w-5 h-5 mr-1" aria-hidden="true" role="img" />
         <button
-          class="p-1 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white"
+          class="p-1 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           type="button"
           :title="$t('Shift backward')"
           @click="shiftDateRange(-1)"
@@ -92,7 +92,7 @@
           </template>
         </DatePicker>
         <button
-          class="p-1 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white"
+          class="p-1 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
           type="button"
           :title="$t('Shift forward')"
           @click="shiftDateRange(1)"
@@ -102,7 +102,7 @@
       </div>
       <div class="flex items-center px-1">
         <button
-          class="p-1.5 border border-white hover:bg-white/20 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white text-white"
+          class="p-1.5 border border-white hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white text-white"
           type="button"
           :title="locationStore.realTimeUpdatesEnabled ? $t('Pause real-time updates') : $t('Resume real-time updates')"
           @click="locationStore.realTimeUpdatesEnabled = !locationStore.realTimeUpdatesEnabled"
@@ -161,7 +161,7 @@
       </div>
       <div class="flex items-center px-2">
         <button
-          class="p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-white text-white"
+          class="p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white text-white"
           type="button"
           :title="$t('Information')"
           @click="locationStore.isInformationModalVisible = true"
