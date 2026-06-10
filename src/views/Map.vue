@@ -111,6 +111,39 @@ const renderMarkers = () => {
   }
 };
 
+let playbackMarker = null;
+
+const renderPlaybackMarker = () => {
+  if (!map) return;
+  const point = locationStore.playbackPoint;
+  
+  if (!point) {
+    if (playbackMarker) {
+      playbackMarker.remove();
+      playbackMarker = null;
+    }
+    return;
+  }
+  
+  if (!playbackMarker) {
+    const el = document.createElement('div');
+    el.className = 'w-4 h-4 rounded-full bg-amber-500 border-[3px] border-black shadow-md relative';
+    
+    const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10, className: 'playback-popup' })
+      .setHTML(`<strong>Playback</strong><br>${new Date(point.tst * 1000).toLocaleString()}`);
+      
+    playbackMarker = new maplibregl.Marker({ element: el })
+      .setLngLat([point.lon, point.lat])
+      .setPopup(popup)
+      .addTo(map);
+      
+    playbackMarker.togglePopup();
+  } else {
+    playbackMarker.setLngLat([point.lon, point.lat]);
+    playbackMarker.getPopup().setHTML(`<strong>Playback</strong><br>${new Date(point.tst * 1000).toLocaleString()}`);
+  }
+};
+
 const getLinesGeoJSON = () => {
   const features = locationStore.filteredLocationHistoryLatLngGroups
     .filter(group => group.latLngs.length > 1)
@@ -429,6 +462,9 @@ watch(() => locationStore.lastLocations, () => {
 watch(() => locationStore.locationHistory, () => {
   fitView();
 });
+watch(() => locationStore.playbackPoint, () => {
+  renderPlaybackMarker();
+}, { deep: true });
 
 onUnmounted(() => {
   if (map) map.remove();

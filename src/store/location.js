@@ -43,6 +43,7 @@ export const useLocationStore = defineStore("location", () => {
   const requestAbortController = ref(null);
   const fitViewToggle = ref(false);
   const realTimeUpdatesEnabled = ref(true);
+  const playbackPoint = ref(null);
 
   // Automatically tick the endDateTime forward if real-time updates are enabled
   setInterval(() => {
@@ -388,6 +389,8 @@ export const useLocationStore = defineStore("location", () => {
     requestAbortController,
     fitViewToggle,
     realTimeUpdatesEnabled,
+    playbackPoint,
+    filteredLastLocations,
     filteredLocationHistory,
     filteredLocationHistoryLatLngs,
     filteredLocationHistoryLatLngGroups,
