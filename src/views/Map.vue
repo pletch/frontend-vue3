@@ -11,7 +11,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useLocationStore } from "@/store/location";
 import config from "@/config";
 import { useDark } from "@vueuse/core";
-import { getUserColor } from "@/util";
+import { getUserColor, humanReadableSpeed, humanReadableAltitude } from "@/util";
 import LDeviceLocationPopup from "@/components/LDeviceLocationPopup.vue";
 import { PersonStandingIcon, BikeIcon, CarIcon } from "lucide-vue-next";
 
@@ -137,8 +137,16 @@ const renderPlaybackMarker = () => {
     const el = document.createElement('div');
     render(vnode, el);
     
+    const speed = point.vel ? humanReadableSpeed(point.vel, locationStore.units) : '0 km/h';
+    const alt = point.alt !== undefined ? humanReadableAltitude(point.alt, locationStore.units) : '0 m';
+    const time = new Date(point.tst * 1000).toLocaleString();
+    const popupHtml = `<div class="text-gray-900 text-center">
+      <div class="font-bold border-b border-gray-200 pb-1 mb-1 text-sm">${time}</div>
+      <div class="text-xs text-gray-600 font-medium">${speed} &bull; ${alt}</div>
+    </div>`;
+
     const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10, className: 'playback-popup' })
-      .setHTML(`<strong>Playback</strong><br>${new Date(point.tst * 1000).toLocaleString()}`);
+      .setHTML(popupHtml);
       
     playbackMarker = new maplibregl.Marker({ element: el })
       .setLngLat([point.lon, point.lat])
@@ -149,7 +157,16 @@ const renderPlaybackMarker = () => {
   } else {
     render(vnode, playbackMarker.getElement());
     playbackMarker.setLngLat([point.lon, point.lat]);
-    playbackMarker.getPopup().setHTML(`<strong>Playback</strong><br>${new Date(point.tst * 1000).toLocaleString()}`);
+    
+    const speed = point.vel ? humanReadableSpeed(point.vel, locationStore.units) : '0 km/h';
+    const alt = point.alt !== undefined ? humanReadableAltitude(point.alt, locationStore.units) : '0 m';
+    const time = new Date(point.tst * 1000).toLocaleString();
+    const popupHtml = `<div class="text-gray-900 text-center">
+      <div class="font-bold border-b border-gray-200 pb-1 mb-1 text-sm">${time}</div>
+      <div class="text-xs text-gray-600 font-medium">${speed} &bull; ${alt}</div>
+    </div>`;
+    
+    playbackMarker.getPopup().setHTML(popupHtml);
   }
 };
 
