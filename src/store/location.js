@@ -193,7 +193,15 @@ export const useLocationStore = defineStore("location", () => {
         if (!locationHistory.value[location.username][location.device]) {
           locationHistory.value[location.username][location.device] = [];
         }
-        locationHistory.value[location.username][location.device].push(location);
+        
+        const devHistory = locationHistory.value[location.username][location.device];
+        const existingIndex = devHistory.findIndex(l => l.tst === location.tst);
+        if (existingIndex !== -1) {
+          devHistory[existingIndex] = location;
+        } else {
+          devHistory.push(location);
+          devHistory.sort((a, b) => a.tst - b.tst);
+        }
 
       } else {
         await getLastLocations();
