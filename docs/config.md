@@ -208,9 +208,8 @@ Attribution for map tiles.
 
 ### `map.circle`
 
-Location accuracy indicator configuation. `color` and `fillColor` default to
-`primaryColor` if `null`. See @vue-leaflet/vue-leaflet `l-circle` documentation
-for all possible values.
+Location accuracy indicator configuration. `color` and `fillColor` default to
+`primaryColor` if `null`. These properties map directly to MapLibre GL JS paint layout properties for the accuracy layer.
 
 - Type: [`Object`]
 - Default:
@@ -224,9 +223,7 @@ for all possible values.
 
 ### `map.circleMarker`
 
-Location point marker configuation. `color` defaults to `primaryColor` if `null`. See
-@vue-leaflet/vue-leaflet `l-circle-marker` documentation
-for all possible values.
+Location point marker configuration. `color` defaults to `primaryColor` if `null`. These properties control the styling of the MapLibre GL JS points layer.
 
 - Type: [`Object`]
 - Default:
@@ -269,8 +266,7 @@ Whether to show an metric scale (m) or not.
 
 ### `map.controls.scale.position`
 
-Scale control position on the map. See [Leaflet control position documentation](https://leafletjs.com/reference.html#control)
-for all possible values.
+Scale control position on the map. (Currently deprecated due to MapLibre GL JS migration).
 
 - Type: [`String`]
 - Default: `"bottomleft"`
@@ -284,8 +280,7 @@ Whether to show zoom control or not.
 
 ### `map.controls.zoom.position`
 
-Zoom control position on the map. See [Leaflet control position documentation](https://leafletjs.com/reference.html#control)
-for all possible values.
+Zoom control position on the map. (Currently defaults to `top-left` in MapLibre GL JS).
 
 - Type: [`String`]
 - Default: `"topleft"`
@@ -299,8 +294,7 @@ Heatmap blur radius.
 
 ### `map.heatmap.gradient`
 
-Mapping of values between 0 and 1 to different colors. Defaults to [`simpleheat`'s default gradient](https://github.com/mourner/simpleheat/blob/c1998c36fa2f9a31350371fd42ee30eafcc78f9c/simpleheat.js#L22-L28)
-if `null`.
+Mapping of values between 0 and 1 to different colors. (Currently deprecated due to MapLibre native heatmap engine).
 
 - Type: [`Object`] or `null`
 - Default: `null`
@@ -392,8 +386,7 @@ to disable.
 
 ### `map.poiMarker`
 
-POI marker configuration. See @vue-leaflet/vue-leaflet `l-circle-marker` documentation
-for all possible values.
+POI marker configuration. These properties control the styling of the MapLibre GL JS POI layer.
 
 - Type: [`Object`]
 - Default:
@@ -408,9 +401,7 @@ for all possible values.
 
 ### `map.polyline`
 
-Location point marker configuration. `color` defaults to `primaryColor` if `null`. See
-@vue-leaflet/vue-leaflet `l-polyline` documentation
-for all possible values.
+Location point marker configuration. `color` defaults to `primaryColor` if `null`. These properties control the styling of the MapLibre GL JS line layer.
 
 - Type: [`Object`]
 - Default:
@@ -431,8 +422,8 @@ Size of the tiles in pixels returned by the tile server. Can be used together wi
 
 ### `map.url`
 
-Tile server URL. For more information see [Leaflet tile layer documentation](https://leafletjs.com/reference.html#tilelayer)
-and [this Wikipedia article](https://en.wikipedia.org/wiki/Tiled_web_map).
+Tile server URL for MapLibre raster base map.
+See [this Wikipedia article](https://en.wikipedia.org/wiki/Tiled_web_map) for more information.
 
 - Type: [`String`]
 - Default: `"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"`
