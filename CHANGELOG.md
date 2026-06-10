@@ -22,7 +22,14 @@ Dates are in UTC.
 - Added a new real-time Play/Pause button in the header to easily suspend live websocket ingestion.
 - Implemented automatic real-time ticking for the `endDateTime` display while streaming live data.
 - Automatically pause real-time updates when shifting or selecting a historic time window entirely in the past.
-
+- Completely replaced the legacy Leaflet map engine with a high-performance MapLibre GL JS WebGL engine.
+- Ported the Route Playback feature to native MapLibre GL JS, allowing smooth animation of historic user routes.
+- Upgraded the playback ghost marker to dynamically render motion activity icons based on `motionactivities`.
+- Display exact speed and elevation data directly inside the playback marker popup using automatic unit conversion.
+- Added a custom WebGL support check and fallback modal to warn users when hardware acceleration is disabled.
+- Fixed an issue where the velocity unit system would flap between mph and km/h when a user stopped moving.
+- Resolved an issue where playback markers would linger on the map after clearing the active device context.
+- Cleaned up the standard location popup to prevent timezone information from overflowing the modal container.
 ### Changed
 - Converted core components (`AppHeader.vue`, `Map.vue`, `LDeviceLocationPopup.vue`, `LHeatmap.vue`) to native `<script setup>` syntax.
 - Completely rebuilt map rendering logic to be proxy-aware and avoid infinite recursion crashes with Leaflet and Vue 3.

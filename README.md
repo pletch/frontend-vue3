@@ -30,6 +30,9 @@ pages, this is a more advanced interface with more functionality, all in one pla
 - Quickly fit all shown objects on the map into view
 - Display data in a specific date and time range
 - Filter by user or specific device
+- Route playback animation with dynamic activity states and velocity tracking
+- High-performance native WebGL hardware acceleration via MapLibre GL JS
+- Automatic live WebSocket location injection for real-time tracking without API reloads
 - Calculation of distance travelled
 - Highly customisable
 
@@ -100,10 +103,8 @@ See [`docs/config.md`](docs/config.md) for all available options.
 - Run `npm run dev` to compile for development and start the hot-reload server
 - Run `npm run lint:js` to lint JavaScript/Vue files
 - Run `npm run lint:md` to lint Markdown files
-- Run `npm run lint:scss` to lint SCSS files
 - Run `npm run format:js` to format JavaScript/Vue files
 - Run `npm run format:md` to format Markdown files
-- Run `npm run format:scss` to format SCSS files
 - Run `npm test` to run unit tests
 
 ### CORS-Proxy
