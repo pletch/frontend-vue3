@@ -117,6 +117,110 @@ const renderMarkers = () => {
   }
 };
 
+const getLinesGeoJSON = () => {
+  const features = locationStore.filteredLocationHistoryLatLngGroups.map(group => ({
+    type: 'Feature',
+    properties: {
+      color: getUserColor(group.user)
+    },
+    geometry: {
+      type: 'LineString',
+      coordinates: group.latLngs.map(latLng => [latLng[1], latLng[0]]) // [lng, lat]
+    }
+  }));
+
+  return { type: 'FeatureCollection', features };
+};
+
+const getHeatmapGeoJSON = () => {
+  const features = locationStore.filteredLocationHistoryLatLngs.map(latLng => ({
+    type: 'Feature',
+    geometry: {
+      type: 'Point',
+      coordinates: [latLng[1], latLng[0]]
+    }
+  }));
+
+  return { type: 'FeatureCollection', features };
+};
+
+const initSourcesAndLayers = () => {
+  if (!map) return;
+
+  // Lines Source & Layer
+  if (!map.getSource('history-lines')) {
+    map.addSource('history-lines', {
+      type: 'geojson',
+      data: getLinesGeoJSON()
+    });
+
+    map.addLayer({
+      id: 'history-lines-layer',
+      type: 'line',
+      source: 'history-lines',
+      layout: {
+        'line-join': 'round',
+        'line-cap': 'round',
+        'visibility': locationStore.layers.line ? 'visible' : 'none'
+      },
+      paint: {
+        'line-color': ['get', 'color'],
+        'line-width': config.map.polyline?.weight || 3,
+        'line-opacity': config.map.polyline?.opacity || 0.8
+      }
+    });
+  }
+
+  // Heatmap Source & Layer
+  if (!map.getSource('history-heatmap')) {
+    map.addSource('history-heatmap', {
+      type: 'geojson',
+      data: getHeatmapGeoJSON()
+    });
+
+    map.addLayer({
+      id: 'history-heatmap-layer',
+      type: 'heatmap',
+      source: 'history-heatmap',
+      layout: {
+        'visibility': locationStore.layers.heatmap ? 'visible' : 'none'
+      },
+      paint: {
+        'heatmap-weight': 1,
+        'heatmap-intensity': 1,
+        'heatmap-color': [
+          'interpolate', ['linear'], ['heatmap-density'],
+          0, 'rgba(33,102,172,0)',
+          0.2, 'rgb(103,169,207)',
+          0.4, 'rgb(209,229,240)',
+          0.6, 'rgb(253,219,199)',
+          0.8, 'rgb(239,138,98)',
+          1, config.primaryColor || 'rgb(178,24,43)'
+        ],
+        'heatmap-radius': config.map.heatmap?.radius || 15,
+        'heatmap-opacity': 0.8
+      }
+    });
+  }
+};
+
+const updateGeoJSON = () => {
+  if (!map || !map.isStyleLoaded()) return;
+
+  const linesSource = map.getSource('history-lines');
+  if (linesSource) linesSource.setData(getLinesGeoJSON());
+
+  const heatmapSource = map.getSource('history-heatmap');
+  if (heatmapSource) heatmapSource.setData(getHeatmapGeoJSON());
+
+  if (map.getLayer('history-lines-layer')) {
+    map.setLayoutProperty('history-lines-layer', 'visibility', locationStore.layers.line ? 'visible' : 'none');
+  }
+  if (map.getLayer('history-heatmap-layer')) {
+    map.setLayoutProperty('history-heatmap-layer', 'visibility', locationStore.layers.heatmap ? 'visible' : 'none');
+  }
+};
+
 onMounted(() => {
   map = new maplibregl.Map({
     container: mapContainer.value,
@@ -128,8 +232,13 @@ onMounted(() => {
 
   map.addControl(new maplibregl.NavigationControl(), 'top-left');
 
+  map.on('style.load', () => {
+    initSourcesAndLayers();
+  });
+
   map.on('load', () => {
     renderMarkers();
+    initSourcesAndLayers();
   });
 });
 
@@ -141,6 +250,14 @@ watch(currentStyle, (newStyle) => {
 
 watch(() => locationStore.filteredLastLocations, () => {
   renderMarkers();
+}, { deep: true });
+
+watch([
+  () => locationStore.filteredLocationHistoryLatLngGroups, 
+  () => locationStore.filteredLocationHistoryLatLngs,
+  () => locationStore.layers
+], () => {
+  updateGeoJSON();
 }, { deep: true });
 
 onUnmounted(() => {
