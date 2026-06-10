@@ -16,8 +16,8 @@
           <ClockIcon class="w-4 h-4 flex-shrink-0 text-primary mt-0.5" aria-hidden="true" role="img" />
           <span>
             {{ new Date(timestamp * 1000).toLocaleString(config.locale) }}
-            <span v-if="isoLocal && timeZone" class="block text-[0.7rem] font-mono text-gray-500 mt-0.5">
-              {{ isoLocal }}[{{ timeZone }}]
+            <span v-if="timeZone" class="block text-xs font-mono text-gray-500 mt-0.5">
+              {{ timeZone }}
             </span>
           </span>
         </li>
