@@ -37,7 +37,28 @@ import { PersonStandingIcon, BikeIcon, CarIcon, MonitorXIcon } from "lucide-vue-
 const mapContainer = ref(null);
 let map = null;
 const locationStore = useLocationStore();
-const webglSupported = maplibregl.supported();
+
+const checkWebGLSupport = () => {
+  try {
+    const canvas = document.createElement('canvas');
+    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!gl) return false;
+    
+    // Optional: Fail if it's a software renderer (like SwiftShader on the VM)
+    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+    if (debugInfo) {
+      const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL).toLowerCase();
+      if (renderer.includes('swiftshader') || renderer.includes('llvmpipe') || renderer.includes('software')) {
+        return false;
+      }
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
+const webglSupported = checkWebGLSupport();
 const isDark = useDark();
 const instance = getCurrentInstance();
 
