@@ -478,4 +478,34 @@ onUnmounted(() => {
   border-radius: 0.5rem;
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
+
+.playback-popup .maplibregl-popup-content {
+  padding: 6px 10px;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  text-align: center;
+  color: #111827; /* Force dark text in light mode */
+}
+
+/* Dark Mode Playback Popup */
+html.dark .playback-popup .maplibregl-popup-content {
+  background-color: #1f2937;
+  color: #f9fafb;
+}
+html.dark .playback-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip,
+html.dark .playback-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+html.dark .playback-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+  border-bottom-color: #1f2937;
+}
+html.dark .playback-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+html.dark .playback-popup.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+html.dark .playback-popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
+  border-top-color: #1f2937;
+}
+html.dark .playback-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: #1f2937;
+}
+html.dark .playback-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: #1f2937;
+}
 </style>
