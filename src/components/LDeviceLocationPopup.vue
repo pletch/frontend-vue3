@@ -1,5 +1,5 @@
 <template>
-  <LPopup :options="options">
+  <div class="px-2 py-1 min-w-[200px] max-w-[350px]">
     <div class="inline-block relative -top-1 text-primary font-bold text-lg">
       {{ deviceName }}
     </div>
@@ -68,7 +68,7 @@
       {{ $t("Regions:") }}
       {{ regions.join(", ") }}
     </div>
-  </LPopup>
+  </div>
 </template>
 
 <script setup>
@@ -84,7 +84,6 @@ import {
   ZapIcon,
   ActivityIcon,
 } from "lucide-vue-next";
-import { LPopup } from "@vue-leaflet/vue-leaflet";
 import { useLocationStore } from "@/store/location";
 import config from "@/config";
 import { humanReadableAltitude, humanReadableSpeed } from "@/util";
@@ -172,10 +171,7 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
-  options: {
-    type: Object,
-    default: () => ({}),
-  },
+
 });
 
 /**
