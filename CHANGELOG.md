@@ -17,12 +17,14 @@ Dates are in UTC.
 - Parse Battery Status (`bs`) payload to dynamically display a green charging icon when device is plugged in.
 - Implemented an option to hide stale map markers older than 48 hours within "Display settings".
 - Guaranteed that individually selected users bypass the stale marker filter to always display.
-- Enhanced Date Picker with additional shortcuts for "4 hours", "8 hours", and "12 hours".
+- Enhanced Date Picker with additional shortcuts for "4 hours", "8 hours", "12 hours", and "24 hours".
+- Fixed mobile rendering bugs in the Date Picker by injecting responsive CSS overrides to correctly stack the time selection panels without overflowing the screen.
+- Resolved race conditions in map marker popups by replacing static DOM manipulation with dynamic Vue `render()` loops, ensuring real-time metadata stays in sync.
 - Implemented rapid interval-shifting Left/Right arrow navigation to quickly skip through time blocks.
 - Added a new real-time Play/Pause button in the header to easily suspend live websocket ingestion.
 - Implemented automatic real-time ticking for the `endDateTime` display while streaming live data.
 - Automatically pause real-time updates when shifting or selecting a historic time window entirely in the past.
-- Completely replaced the legacy Leaflet map engine with a high-performance MapLibre GL JS WebGL engine.
+- Completely replaced the legacy Leaflet map engine with a high-performance MapLibre GL JS WebGL engine, bringing support for modern vector tiles and high-frame-rate rendering.
 - Ported the Route Playback feature to native MapLibre GL JS, allowing smooth animation of historic user routes.
 - Upgraded the playback ghost marker to dynamically render motion activity icons based on `motionactivities`.
 - Display exact speed and elevation data directly inside the playback marker popup using automatic unit conversion.

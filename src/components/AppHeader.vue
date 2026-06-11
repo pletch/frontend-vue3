@@ -77,15 +77,16 @@
           range
           :range-separator="$t('range_separator')"
           :shortcuts="shortcuts"
-          v-model:show-time-panel="showTimeRangePanel"
+          :show-time-panel="showTimeRangePanel"
+          @show-time-panel-change="showTimeRangePanel = $event"
           :disabled-date="(date) => date > new Date()"
-          @change="showTimeRangePanel = false"
+          @open="showTimeRangePanel = false"
         >
           <template #footer>
             <button
               class="mx-btn w-full py-1 text-xs font-semibold text-primary hover:bg-gray-50 border-t border-separator transition-colors"
               type="button"
-              @click="showTimeRangePanel = !showTimeRangePanel"
+              @click.stop.prevent="showTimeRangePanel = !showTimeRangePanel"
             >
               {{ showTimeRangePanel ? $t("Select date") : $t("Select time") }}
             </button>

@@ -74,3 +74,31 @@
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-thumb { @apply bg-gray-300 rounded; }
 ::-webkit-scrollbar-thumb:hover { @apply bg-gray-400; }
+/* Fix vue-datepicker-next overflow on mobile screens */
+@media (max-width: 768px) {
+  .mx-datepicker-popup {
+    max-width: 95vw !important;
+    max-height: 80vh !important;
+    overflow-y: auto !important;
+    left: 2.5vw !important;
+  }
+  .mx-calendar-range, .mx-time-range, .mx-date-time-range {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+  }
+  .mx-calendar, .mx-time {
+    width: 100% !important;
+  }
+  .mx-date-time-range .mx-time-range {
+    position: absolute !important; top: 0; left: 0; background: white !important;
+    z-index: 10 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100% !important;
+  }
+  .mx-time-columns {
+    height: 200px !important;
+  }
+}
