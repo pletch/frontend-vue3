@@ -77,7 +77,7 @@
           range
           :range-separator="$t('range_separator')"
           :shortcuts="shortcuts"
-          :show-time-panel="showTimeRangePanel"
+          v-model:show-time-panel="showTimeRangePanel"
           :disabled-date="(date) => date > new Date()"
           @change="showTimeRangePanel = false"
         >
@@ -275,6 +275,14 @@ const shortcuts = computed(() => [
     onClick() {
       const end = new Date();
       const start = new Date(end.getTime() - 12 * 60 * 60 * 1000);
+      return [start, end];
+    },
+  },
+  {
+    text: t("24 hours"),
+    onClick() {
+      const end = new Date();
+      const start = new Date(end.getTime() - 24 * 60 * 60 * 1000);
       return [start, end];
     },
   },
