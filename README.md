@@ -137,12 +137,7 @@ Finally update `api.baseUrl` in your config to `"http://0.0.0.0:8888/https://own
 
 ### I18n
 
-This project uses [Vue I18n](https://vue-i18n.intlify.dev/). To see missing and
-unused i18n entries, run:
-
-```console
-$ npm run i18n:report
-```
+This project uses [Vue I18n](https://vue-i18n.intlify.dev/) for robust localization.
 
 To add a new locale, copy `en-US.json` to `<locale>.json` in [`src/locales`](src/locales)
 and start translating the individual strings. Make sure to [mention the new locale to the docs](docs/config.md#locale)!

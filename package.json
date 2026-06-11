@@ -18,10 +18,8 @@
     "cors-proxy": "node scripts/corsProxy.js",
     "format:js": "eslint --fix 'src/**/*.{js,vue}'",
     "format:md": "prettier --write '{*.md,docs/**/*.md,src/**/*.md}'",
-    "format:scss": "prettier --write 'src/**/*.scss'",
     "lint:js": "eslint 'src/**/*.{js,vue}'",
     "lint:md": "prettier --check '{*.md,docs/**/*.md,src/**/*.md}'",
-    "lint:scss": "prettier --check 'src/**/*.scss'",
     "test": "vitest run"
   },
   "dependencies": {
