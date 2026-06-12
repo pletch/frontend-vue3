@@ -38,7 +38,7 @@ export async function getVersion() {
   const version = json.version;
   log("API", () => `[getVersion] ${version}`);
   return version;
-};
+}
 
 /**
  * Get all users.
@@ -51,7 +51,7 @@ export async function getUsers() {
   const users = json.results;
   log("API", () => `[getUsers] Fetched ${users.length} users`);
   return users;
-};
+}
 
 /**
  * Get all devices for the provided users.
@@ -80,7 +80,7 @@ export async function getDevices(users) {
     );
   });
   return devices;
-};
+}
 
 /**
  * Get last locations for a specific or all user/device.
@@ -105,7 +105,7 @@ export async function getLastLocations(user, device) {
     () => `[getLastLocations] Fetched ${lastLocations.length} last locations`
   );
   return lastLocations;
-};
+}
 
 /**
  * Get the location history of a specific user/device.
@@ -117,7 +117,13 @@ export async function getLastLocations(user, device) {
  * @param {Object} [fetchOptions] fetch() options
  * @returns {Promise<OTLocation[]>} Array of location history objects
  */
-export async function getUserDeviceLocationHistory(user, device, start, end, fetchOptions) {
+export async function getUserDeviceLocationHistory(
+  user,
+  device,
+  start,
+  end,
+  fetchOptions
+) {
   const response = await fetchApi(
     "/api/0/locations",
     {
@@ -240,7 +246,10 @@ export async function connectWebsocket(callback, attempt = 0) {
               data.device = data.device || "device";
             }
           }
-          log("WS", `Location update received for ${data.username}/${data.device}`);
+          log(
+            "WS",
+            `Location update received for ${data.username}/${data.device}`
+          );
           callback && (await callback(data));
         }
       } catch (err) {

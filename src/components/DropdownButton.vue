@@ -1,11 +1,6 @@
 <template>
   <div ref="dropdownRef" class="relative inline-block text-left">
-    <button
-      type="button"
-      class="btn-outline"
-      :title="title"
-      @click="toggle"
-    >
+    <button type="button" class="btn-outline" :title="title" @click="toggle">
       {{ label }}
     </button>
     <div

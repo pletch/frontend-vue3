@@ -25,9 +25,14 @@ export const useLocationStore = defineStore("location", () => {
   const lastLocations = ref([]);
   const locationHistory = ref({});
   const selectedUser = ref(config.selectedUser);
-  const selectedDevice = ref(config.selectedUser !== null ? config.selectedDevice : null);
+  const selectedDevice = ref(
+    config.selectedUser !== null ? config.selectedDevice : null
+  );
   const units = useLocalStorage("owntracks-units", config.units);
-  const layers = useLocalStorage("owntracks-layers", { ...config.map.layers, hideStale: false });
+  const layers = useLocalStorage("owntracks-layers", {
+    ...config.map.layers,
+    hideStale: false,
+  });
   const startDateTime = ref(formatInitialDate(config.startDateTime));
   const endDateTime = ref(formatInitialDate(config.endDateTime));
   const map = reactive({
@@ -55,12 +60,13 @@ export const useLocationStore = defineStore("location", () => {
   // Getters
   const filteredLastLocations = computed(() => {
     // If stale filter is disabled, or if a specific user is selected, show everything.
-    if (!layers.value.hideStale || selectedUser.value) return lastLocations.value;
+    if (!layers.value.hideStale || selectedUser.value)
+      return lastLocations.value;
     const now = Date.now();
     const twoDaysInMs = 2 * 24 * 60 * 60 * 1000;
     return lastLocations.value.filter((location) => {
       if (!location.tst) return true;
-      return (now - (location.tst * 1000)) <= twoDaysInMs;
+      return now - location.tst * 1000 <= twoDaysInMs;
     });
   });
 
@@ -178,10 +184,14 @@ export const useLocationStore = defineStore("location", () => {
 
       if (location && location._type === "location") {
         const index = lastLocations.value.findIndex(
-          (l) => l.username === location.username && l.device === location.device
+          (l) =>
+            l.username === location.username && l.device === location.device
         );
         if (index !== -1) {
-          lastLocations.value[index] = { ...lastLocations.value[index], ...location };
+          lastLocations.value[index] = {
+            ...lastLocations.value[index],
+            ...location,
+          };
         } else {
           await getLastLocations();
         }
@@ -193,16 +203,18 @@ export const useLocationStore = defineStore("location", () => {
         if (!locationHistory.value[location.username][location.device]) {
           locationHistory.value[location.username][location.device] = [];
         }
-        
-        const devHistory = locationHistory.value[location.username][location.device];
-        const existingIndex = devHistory.findIndex(l => l.tst === location.tst);
+
+        const devHistory =
+          locationHistory.value[location.username][location.device];
+        const existingIndex = devHistory.findIndex(
+          (l) => l.tst === location.tst
+        );
         if (existingIndex !== -1) {
           devHistory[existingIndex] = location;
         } else {
           devHistory.push(location);
           devHistory.sort((a, b) => a.tst - b.tst);
         }
-
       } else {
         await getLastLocations();
       }
@@ -241,7 +253,9 @@ export const useLocationStore = defineStore("location", () => {
       if (selectedDevice.value) {
         targetDevices = { [selectedUser.value]: [selectedDevice.value] };
       } else {
-        targetDevices = { [selectedUser.value]: devices.value[selectedUser.value] };
+        targetDevices = {
+          [selectedUser.value]: devices.value[selectedUser.value],
+        };
       }
     } else {
       targetDevices = devices.value;
@@ -289,7 +303,11 @@ export const useLocationStore = defineStore("location", () => {
             location.acc > config.filters.minAccuracy
           )
             return;
-          const latLng = { lat: location.lat, lng: location.lon, alt: location.alt ?? 0 };
+          const latLng = {
+            lat: location.lat,
+            lng: location.lon,
+            alt: location.alt ?? 0,
+          };
           if (lastLatLng !== null) {
             const distance = distanceBetweenCoordinates(lastLatLng, latLng);
             const elevationChange = latLng.alt - lastLatLng.alt;

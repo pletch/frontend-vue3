@@ -1,5 +1,8 @@
 <template>
-  <div id="app" class="flex flex-col h-screen w-screen overflow-hidden text-sm sm:text-base font-sans text-gray-900 bg-gray-50 dark:bg-gray-900 dark:text-gray-100">
+  <div
+    id="app"
+    class="flex flex-col h-screen w-screen overflow-hidden text-sm sm:text-base font-sans text-gray-900 bg-gray-50 dark:bg-gray-900 dark:text-gray-100"
+  >
     <AppHeader />
     <main class="relative flex-grow h-full w-full bg-gray-200 dark:bg-gray-800">
       <router-view />
@@ -50,7 +53,9 @@ const updateUrlQuery = () => {
     selectedUser: user,
     selectedDevice: device,
   } = locationStore;
-  const activeLayers = Object.keys(layers).filter((key) => layers[key] === true);
+  const activeLayers = Object.keys(layers).filter(
+    (key) => layers[key] === true
+  );
   const query = {
     lat: map.center.lat,
     lng: map.center.lng,
@@ -81,7 +86,10 @@ watch(
 );
 
 onMounted(() => {
-  document.documentElement.style.setProperty("--color-primary", config.primaryColor);
+  document.documentElement.style.setProperty(
+    "--color-primary",
+    config.primaryColor
+  );
   document.documentElement.style.setProperty("--color-separator", "#eee");
   locationStore.populateStateFromQuery(route.query);
   locationStore.loadData();

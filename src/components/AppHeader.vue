@@ -1,5 +1,7 @@
 <template>
-  <header class="flex items-center justify-between px-4 h-[50px] bg-primary text-white shadow-sm sticky top-0 z-50">
+  <header
+    class="flex items-center justify-between px-4 h-[50px] bg-primary text-white shadow-sm sticky top-0 z-50"
+  >
     <div v-if="isSmallScreen" class="flex items-center px-2">
       <button
         class="p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white text-white"
@@ -18,7 +20,12 @@
       ]"
     >
       <div class="flex items-center space-x-2 px-2">
-        <CrosshairIcon v-if="isSmallScreen" class="w-5 h-5" aria-hidden="true" role="img" />
+        <CrosshairIcon
+          v-if="isSmallScreen"
+          class="w-5 h-5"
+          aria-hidden="true"
+          role="img"
+        />
         <button
           class="btn-primary py-1.5 px-3 text-sm border border-white"
           type="button"
@@ -105,10 +112,22 @@
         <button
           class="p-1.5 border border-white hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white text-white"
           type="button"
-          :title="locationStore.realTimeUpdatesEnabled ? $t('Pause real-time updates') : $t('Resume real-time updates')"
-          @click="locationStore.realTimeUpdatesEnabled = !locationStore.realTimeUpdatesEnabled"
+          :title="
+            locationStore.realTimeUpdatesEnabled
+              ? $t('Pause real-time updates')
+              : $t('Resume real-time updates')
+          "
+          @click="
+            locationStore.realTimeUpdatesEnabled =
+              !locationStore.realTimeUpdatesEnabled
+          "
         >
-          <PauseIcon v-if="locationStore.realTimeUpdatesEnabled" class="w-4 h-4" aria-hidden="true" role="img" />
+          <PauseIcon
+            v-if="locationStore.realTimeUpdatesEnabled"
+            class="w-4 h-4"
+            aria-hidden="true"
+            role="img"
+          />
           <PlayIcon v-else class="w-4 h-4" aria-hidden="true" role="img" />
         </button>
       </div>
@@ -125,7 +144,10 @@
           </option>
         </select>
       </div>
-      <div v-if="locationStore.selectedUser" class="flex items-center space-x-2 px-2">
+      <div
+        v-if="locationStore.selectedUser"
+        class="flex items-center space-x-2 px-2"
+      >
         <SmartphoneIcon class="w-5 h-5" aria-hidden="true" role="img" />
         <select
           v-model="selectedDevice"
@@ -149,15 +171,30 @@
         class="text-right text-xs leading-tight"
       >
         <span :title="$t('Distance travelled')">
-          {{ humanReadableDistance(locationStore.distanceTravelled, locationStore.units) }}
+          {{
+            humanReadableDistance(
+              locationStore.distanceTravelled,
+              locationStore.units
+            )
+          }}
         </span>
         <br />
         <span :title="$t('Elevation gain / loss')">
           <ArrowUpIcon class="w-4 h-4 inline mt-[3px]" role="img" />
-          {{ humanReadableDistance(locationStore.elevationGain, locationStore.units) }}
+          {{
+            humanReadableDistance(
+              locationStore.elevationGain,
+              locationStore.units
+            )
+          }}
           {{ $t("/") }}
           <ArrowDownIcon class="w-4 h-4 inline mt-[3px]" role="img" />
-          {{ humanReadableDistance(locationStore.elevationLoss, locationStore.units) }}
+          {{
+            humanReadableDistance(
+              locationStore.elevationLoss,
+              locationStore.units
+            )
+          }}
         </span>
       </div>
       <div class="flex items-center px-1">
@@ -167,7 +204,12 @@
           :title="isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
           @click="toggleDark()"
         >
-          <MoonIcon v-if="!isDark" class="w-5 h-5" aria-hidden="true" role="img" />
+          <MoonIcon
+            v-if="!isDark"
+            class="w-5 h-5"
+            aria-hidden="true"
+            role="img"
+          />
           <SunIcon v-else class="w-5 h-5" aria-hidden="true" role="img" />
         </button>
       </div>
@@ -178,7 +220,11 @@
           :title="$t('Information')"
           @click="locationStore.isInformationModalVisible = true"
         >
-          <InfoIcon class="w-5 h-5" :aria-label="$t('Information')" role="img" />
+          <InfoIcon
+            class="w-5 h-5"
+            :aria-label="$t('Information')"
+            role="img"
+          />
         </button>
       </div>
     </nav>
@@ -389,7 +435,9 @@ const dateTimeRange = computed({
       if (newEnd.isBefore(moment.utc())) {
         locationStore.realTimeUpdatesEnabled = false;
       }
-      locationStore.setStartDateTime(moment(start).utc().format("YYYY-MM-DDTHH:mm:ss"));
+      locationStore.setStartDateTime(
+        moment(start).utc().format("YYYY-MM-DDTHH:mm:ss")
+      );
       locationStore.setEndDateTime(newEnd.format("YYYY-MM-DDTHH:mm:ss"));
     }
   },
@@ -400,14 +448,14 @@ const shiftDateRange = (direction) => {
   const end = moment.utc(locationStore.endDateTime);
   const diffMs = end.diff(start);
   const shiftMs = Math.floor((diffMs / 2) * direction);
-  
-  const newStart = start.clone().add(shiftMs, 'milliseconds');
-  const newEnd = end.clone().add(shiftMs, 'milliseconds');
+
+  const newStart = start.clone().add(shiftMs, "milliseconds");
+  const newEnd = end.clone().add(shiftMs, "milliseconds");
 
   if (newEnd.isBefore(moment.utc())) {
     locationStore.realTimeUpdatesEnabled = false;
   }
-  
+
   locationStore.startDateTime = newStart.format("YYYY-MM-DDTHH:mm:ss");
   locationStore.endDateTime = newEnd.format("YYYY-MM-DDTHH:mm:ss");
   locationStore.reloadData();
@@ -418,5 +466,4 @@ const fitView = () => {
 };
 </script>
 
-<style lang="scss" scoped>
-</style>
+<style lang="scss" scoped></style>

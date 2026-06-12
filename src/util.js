@@ -23,7 +23,9 @@ function getUnitSystem(preference) {
   const p =
     preference !== undefined
       ? preference
-      : (window.owntracks && window.owntracks.config && window.owntracks.config.units) ||
+      : (window.owntracks &&
+          window.owntracks.config &&
+          window.owntracks.config.units) ||
         config.units;
   if (p === "imperial" || p === "metric") {
     return p;
@@ -45,7 +47,9 @@ export function getApiUrl(path) {
       window.owntracks.config.api &&
       window.owntracks.config.api.baseUrl) ||
     config.api.baseUrl;
-  const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+  const normalizedBaseUrl = baseUrl.endsWith("/")
+    ? baseUrl.slice(0, -1)
+    : baseUrl;
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
   return new URL(`${normalizedBaseUrl}${normalizedPath}`);
 }
@@ -193,7 +197,7 @@ export function getLocationHistoryCount(locationHistory) {
 
 /**
  * Assign a consistent distinct color for a given user.
- * 
+ *
  * @param {String} user Username
  * @returns {String} Hex color code
  */

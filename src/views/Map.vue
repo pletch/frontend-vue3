@@ -1,18 +1,35 @@
 <template>
   <div class="h-full w-full relative">
-    <div v-if="!webglSupported" class="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 p-8 z-50">
-      <div class="bg-white dark:bg-gray-900 p-8 rounded-xl shadow-2xl max-w-lg text-center border border-gray-200 dark:border-gray-700">
-        <div class="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+    <div
+      v-if="!webglSupported"
+      class="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800 p-8 z-50"
+    >
+      <div
+        class="bg-white dark:bg-gray-900 p-8 rounded-xl shadow-2xl max-w-lg text-center border border-gray-200 dark:border-gray-700"
+      >
+        <div
+          class="w-16 h-16 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4"
+        >
           <MonitorXIcon class="w-8 h-8" />
         </div>
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Hardware Acceleration Required</h2>
+        <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          Hardware Acceleration Required
+        </h2>
         <p class="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
-          The OwnTracks high-performance map engine requires WebGL. It appears your browser does not support hardware acceleration, or it has been disabled.
+          The OwnTracks high-performance map engine requires WebGL. It appears
+          your browser does not support hardware acceleration, or it has been
+          disabled.
         </p>
-        <div class="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-4 rounded-lg text-sm text-left">
+        <div
+          class="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-4 rounded-lg text-sm text-left"
+        >
           <strong class="block mb-1 font-semibold">How to fix this:</strong>
           <ul class="list-disc pl-5 space-y-1">
-            <li>Enable <strong>Hardware Acceleration</strong> in your browser settings.</li>
+            <li>
+              Enable
+              <strong>Hardware Acceleration</strong>
+              in your browser settings.
+            </li>
             <li>Ensure your graphics drivers are up to date.</li>
             <li>Try using a modern browser like Chrome, Firefox, or Safari.</li>
           </ul>
@@ -24,15 +41,33 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, watch, computed, h, render, getCurrentInstance } from "vue";
+import {
+  ref,
+  onMounted,
+  onUnmounted,
+  watch,
+  computed,
+  h,
+  render,
+  getCurrentInstance,
+} from "vue";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useLocationStore } from "@/store/location";
 import config from "@/config";
 import { useDark } from "@vueuse/core";
-import { getUserColor, humanReadableSpeed, humanReadableAltitude } from "@/util";
+import {
+  getUserColor,
+  humanReadableSpeed,
+  humanReadableAltitude,
+} from "@/util";
 import LDeviceLocationPopup from "@/components/LDeviceLocationPopup.vue";
-import { PersonStandingIcon, BikeIcon, CarIcon, MonitorXIcon } from "lucide-vue-next";
+import {
+  PersonStandingIcon,
+  BikeIcon,
+  CarIcon,
+  MonitorXIcon,
+} from "lucide-vue-next";
 
 const mapContainer = ref(null);
 let map = null;
@@ -40,15 +75,24 @@ const locationStore = useLocationStore();
 
 const checkWebGLSupport = () => {
   try {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl2') || canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    const canvas = document.createElement("canvas");
+    const gl =
+      canvas.getContext("webgl2") ||
+      canvas.getContext("webgl") ||
+      canvas.getContext("experimental-webgl");
     if (!gl) return false;
-    
+
     // Optional: Fail if it's a software renderer (like SwiftShader on the VM)
-    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+    const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
     if (debugInfo) {
-      const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL).toLowerCase();
-      if (renderer.includes('swiftshader') || renderer.includes('llvmpipe') || renderer.includes('software')) {
+      const renderer = gl
+        .getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
+        .toLowerCase();
+      if (
+        renderer.includes("swiftshader") ||
+        renderer.includes("llvmpipe") ||
+        renderer.includes("software")
+      ) {
         return false;
       }
     }
@@ -62,8 +106,10 @@ const webglSupported = checkWebGLSupport();
 const isDark = useDark();
 const instance = getCurrentInstance();
 
-const currentStyle = computed(() => 
-  isDark.value ? "https://tiles.openfreemap.org/styles/dark" : "https://tiles.openfreemap.org/styles/liberty"
+const currentStyle = computed(() =>
+  isDark.value
+    ? "https://tiles.openfreemap.org/styles/dark"
+    : "https://tiles.openfreemap.org/styles/liberty"
 );
 
 // Map of active markers: key -> { marker, popupApp, elementApp }
@@ -74,35 +120,73 @@ const getActivityIconDetails = (location) => {
   if (!Array.isArray(acts) || acts.length === 0) return null;
   const a = acts.join(" ").toLowerCase();
 
-  if (a.includes("automative") || a.includes("automotive") || a.includes("driving")) {
+  if (
+    a.includes("automative") ||
+    a.includes("automotive") ||
+    a.includes("driving")
+  ) {
     return { icon: CarIcon, colorClass: "bg-blue-500" };
   } else if (a.includes("cycling") || a.includes("bike")) {
     return { icon: BikeIcon, colorClass: "bg-orange-500" };
-  } else if (a.includes("walking") || a.includes("running") || a.includes("foot")) {
+  } else if (
+    a.includes("walking") ||
+    a.includes("running") ||
+    a.includes("foot")
+  ) {
     return { icon: PersonStandingIcon, colorClass: "bg-green-500" };
   }
   return null;
 };
 
 const getPopupProps = (user, device, location) => ({
-  user, device, name: location.name, face: location.face, timestamp: location.tst, createdAt: location.created_at, isorcv: location.isorcv, isoLocal: location.isolocal, timeZone: location.tzname, lat: location.lat, lon: location.lon, alt: location.alt, battery: location.batt, batteryStatus: location.bs, speed: location.vel, regions: location.inregions, wifi: { ssid: location.SSID, bssid: location.BSSID }, address: location.addr, activity: Array.isArray(location.motionactivities) ? location.motionactivities.join(", ") : null
+  user,
+  device,
+  name: location.name,
+  face: location.face,
+  timestamp: location.tst,
+  createdAt: location.created_at,
+  isorcv: location.isorcv,
+  isoLocal: location.isolocal,
+  timeZone: location.tzname,
+  lat: location.lat,
+  lon: location.lon,
+  alt: location.alt,
+  battery: location.batt,
+  batteryStatus: location.bs,
+  speed: location.vel,
+  regions: location.inregions,
+  wifi: { ssid: location.SSID, bssid: location.BSSID },
+  address: location.addr,
+  activity: Array.isArray(location.motionactivities)
+    ? location.motionactivities.join(", ")
+    : null,
 });
 
 const MarkerComponent = {
-  props: ['color', 'initials', 'activity'],
+  props: ["color", "initials", "activity"],
   setup(props) {
-    return () => h('div', {
-      class: 'relative flex items-center justify-center w-11 h-11 rounded-full text-white font-bold shadow-md border-2 border-white',
-      style: { backgroundColor: props.color }
-    }, [
-      props.initials,
-      props.activity ? h('div', {
-        class: `absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white ${props.activity.colorClass}`
-      }, [
-        h(props.activity.icon, { class: 'w-3 h-3' })
-      ]) : null
-    ])
-  }
+    return () =>
+      h(
+        "div",
+        {
+          class:
+            "relative flex items-center justify-center w-11 h-11 rounded-full text-white font-bold shadow-md border-2 border-white",
+          style: { backgroundColor: props.color },
+        },
+        [
+          props.initials,
+          props.activity
+            ? h(
+                "div",
+                {
+                  class: `absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center text-white ${props.activity.colorClass}`,
+                },
+                [h(props.activity.icon, { class: "w-3 h-3" })]
+              )
+            : null,
+        ]
+      );
+  },
 };
 
 const renderMarkers = () => {
@@ -110,20 +194,25 @@ const renderMarkers = () => {
 
   const currentKeys = new Set();
 
-  locationStore.filteredLastLocations.forEach(location => {
+  locationStore.filteredLastLocations.forEach((location) => {
     const key = `marker-${location.username}-${location.device}`;
     currentKeys.add(key);
 
     const color = getUserColor(location.username);
-    const initials = location.tid || location.username.substring(0, 2).toUpperCase();
+    const initials =
+      location.tid || location.username.substring(0, 2).toUpperCase();
     const activity = getActivityIconDetails(location);
-    const popupProps = getPopupProps(location.username, location.device, location);
+    const popupProps = getPopupProps(
+      location.username,
+      location.device,
+      location
+    );
 
     if (activeMarkers.has(key)) {
       // Update existing marker position and contents
       const data = activeMarkers.get(key);
       data.marker.setLngLat([location.lon, location.lat]);
-      
+
       // Update marker DOM
       const markerVnode = h(MarkerComponent, { color, initials, activity });
       render(markerVnode, data.marker.getElement());
@@ -134,19 +223,21 @@ const renderMarkers = () => {
       render(popupVnode, data.popupContainer);
     } else {
       // Create new DOM elements for pin and popup
-      const el = document.createElement('div');
+      const el = document.createElement("div");
       const markerVnode = h(MarkerComponent, { color, initials, activity });
       render(markerVnode, el);
 
-      const popupContainer = document.createElement('div');
+      const popupContainer = document.createElement("div");
       const popupVnode = h(LDeviceLocationPopup, popupProps);
       popupVnode.appContext = instance.appContext;
       render(popupVnode, popupContainer);
 
-      const popup = new maplibregl.Popup({ offset: 25, className: 'maplibre-popup-custom' })
-        .setDOMContent(popupContainer);
+      const popup = new maplibregl.Popup({
+        offset: 25,
+        className: "maplibre-popup-custom",
+      }).setDOMContent(popupContainer);
 
-      const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+      const marker = new maplibregl.Marker({ element: el, anchor: "center" })
         .setLngLat([location.lon, location.lat])
         .setPopup(popup)
         .addTo(map);
@@ -170,7 +261,7 @@ let playbackMarker = null;
 const renderPlaybackMarker = () => {
   if (!map) return;
   const point = locationStore.playbackPoint;
-  
+
   if (!point) {
     if (playbackMarker) {
       playbackMarker.remove();
@@ -178,264 +269,320 @@ const renderPlaybackMarker = () => {
     }
     return;
   }
-  
+
   const activity = getActivityIconDetails(point);
-  
-  const vnode = h('div', {
-    class: 'w-6 h-6 rounded-full bg-amber-500 border-[3px] border-black shadow-md relative flex items-center justify-center text-black'
-  }, [
-    activity ? h(activity.icon, { class: 'w-4 h-4 text-black' }) : null
-  ]);
+
+  const vnode = h(
+    "div",
+    {
+      class:
+        "w-6 h-6 rounded-full bg-amber-500 border-[3px] border-black shadow-md relative flex items-center justify-center text-black",
+    },
+    [activity ? h(activity.icon, { class: "w-4 h-4 text-black" }) : null]
+  );
 
   if (!playbackMarker) {
-    const el = document.createElement('div');
+    const el = document.createElement("div");
     render(vnode, el);
-    
+
     const speed = humanReadableSpeed(point.vel || 0, locationStore.units);
-    const alt = point.alt !== undefined ? humanReadableAltitude(point.alt, locationStore.units) : '0 m';
+    const alt =
+      point.alt !== undefined
+        ? humanReadableAltitude(point.alt, locationStore.units)
+        : "0 m";
     const time = new Date(point.tst * 1000).toLocaleString();
     const popupHtml = `<div class="text-gray-900 text-center">
       <div class="font-bold border-b border-gray-200 pb-1 mb-1 text-sm">${time}</div>
       <div class="text-xs text-gray-600 font-medium">${speed} &bull; ${alt}</div>
     </div>`;
 
-    const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10, className: 'playback-popup' })
-      .setHTML(popupHtml);
-      
+    const popup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      offset: 10,
+      className: "playback-popup",
+    }).setHTML(popupHtml);
+
     playbackMarker = new maplibregl.Marker({ element: el })
       .setLngLat([point.lon, point.lat])
       .setPopup(popup)
       .addTo(map);
-      
+
     playbackMarker.togglePopup();
   } else {
     render(vnode, playbackMarker.getElement());
     playbackMarker.setLngLat([point.lon, point.lat]);
-    
+
     const speed = humanReadableSpeed(point.vel || 0, locationStore.units);
-    const alt = point.alt !== undefined ? humanReadableAltitude(point.alt, locationStore.units) : '0 m';
+    const alt =
+      point.alt !== undefined
+        ? humanReadableAltitude(point.alt, locationStore.units)
+        : "0 m";
     const time = new Date(point.tst * 1000).toLocaleString();
     const popupHtml = `<div class="text-gray-900 text-center">
       <div class="font-bold border-b border-gray-200 pb-1 mb-1 text-sm">${time}</div>
       <div class="text-xs text-gray-600 font-medium">${speed} &bull; ${alt}</div>
     </div>`;
-    
+
     playbackMarker.getPopup().setHTML(popupHtml);
   }
 };
 
 const getLinesGeoJSON = () => {
   const features = locationStore.filteredLocationHistoryLatLngGroups
-    .filter(group => group.latLngs.length > 1)
-    .map(group => ({
-      type: 'Feature',
+    .filter((group) => group.latLngs.length > 1)
+    .map((group) => ({
+      type: "Feature",
       properties: {
-        color: getUserColor(group.user)
+        color: getUserColor(group.user),
       },
       geometry: {
-        type: 'LineString',
-        coordinates: group.latLngs.map(ll => [ll.lng !== undefined ? ll.lng : ll[1], ll.lat !== undefined ? ll.lat : ll[0]]) // [lng, lat]
-      }
+        type: "LineString",
+        coordinates: group.latLngs.map((ll) => [
+          ll.lng !== undefined ? ll.lng : ll[1],
+          ll.lat !== undefined ? ll.lat : ll[0],
+        ]), // [lng, lat]
+      },
     }));
 
-  return { type: 'FeatureCollection', features };
+  return { type: "FeatureCollection", features };
 };
 
 const getHeatmapGeoJSON = () => {
-  const features = locationStore.filteredLocationHistoryLatLngs.map(ll => ({
-    type: 'Feature',
+  const features = locationStore.filteredLocationHistoryLatLngs.map((ll) => ({
+    type: "Feature",
     geometry: {
-      type: 'Point',
-      coordinates: [ll.lng !== undefined ? ll.lng : ll[1], ll.lat !== undefined ? ll.lat : ll[0]]
-    }
+      type: "Point",
+      coordinates: [
+        ll.lng !== undefined ? ll.lng : ll[1],
+        ll.lat !== undefined ? ll.lat : ll[0],
+      ],
+    },
   }));
 
-  return { type: 'FeatureCollection', features };
+  return { type: "FeatureCollection", features };
 };
 
 const createGeoJSONCircle = (center, radiusInMeters, points = 64) => {
-    const coords = { latitude: center[1], longitude: center[0] };
-    const km = radiusInMeters / 1000;
-    const ret = [];
-    const distanceX = km / (111.320 * Math.cos(coords.latitude * Math.PI / 180));
-    const distanceY = km / 110.574;
+  const coords = { latitude: center[1], longitude: center[0] };
+  const km = radiusInMeters / 1000;
+  const ret = [];
+  const distanceX = km / (111.32 * Math.cos((coords.latitude * Math.PI) / 180));
+  const distanceY = km / 110.574;
 
-    for(let i = 0; i < points; i++) {
-        const theta = (i / points) * (2 * Math.PI);
-        const x = distanceX * Math.cos(theta);
-        const y = distanceY * Math.sin(theta);
-        ret.push([coords.longitude + x, coords.latitude + y]);
-    }
-    ret.push(ret[0]); // close the polygon
-    return { type: 'Polygon', coordinates: [ret] };
+  for (let i = 0; i < points; i++) {
+    const theta = (i / points) * (2 * Math.PI);
+    const x = distanceX * Math.cos(theta);
+    const y = distanceY * Math.sin(theta);
+    ret.push([coords.longitude + x, coords.latitude + y]);
+  }
+  ret.push(ret[0]); // close the polygon
+  return { type: "Polygon", coordinates: [ret] };
 };
 
 const getAccuracyCirclesGeoJSON = () => {
-  const features = locationStore.filteredLastLocations.filter(l => l.acc).map(l => ({
-    type: 'Feature',
-    properties: { color: getUserColor(l.username) },
-    geometry: createGeoJSONCircle([l.lon, l.lat], l.acc)
-  }));
-  return { type: 'FeatureCollection', features };
+  const features = locationStore.filteredLastLocations
+    .filter((l) => l.acc)
+    .map((l) => ({
+      type: "Feature",
+      properties: { color: getUserColor(l.username) },
+      geometry: createGeoJSONCircle([l.lon, l.lat], l.acc),
+    }));
+  return { type: "FeatureCollection", features };
 };
 
 const getPointsGeoJSON = () => {
   const features = [];
-  Object.keys(locationStore.filteredLocationHistory).forEach(user => {
-    Object.keys(locationStore.filteredLocationHistory[user]).forEach(device => {
-      locationStore.filteredLocationHistory[user][device].forEach(location => {
-        if (locationStore.layers.poi && location.poi) {
-          features.push({
-            type: 'Feature',
-            properties: { type: 'poi', poi: location.poi, color: getUserColor(user) },
-            geometry: { type: 'Point', coordinates: [location.lon, location.lat] }
-          });
-        }
-        if (locationStore.layers.points) {
-          features.push({
-            type: 'Feature',
-            properties: { type: 'point', color: getUserColor(user) },
-            geometry: { type: 'Point', coordinates: [location.lon, location.lat] }
-          });
-        }
-      });
-    });
+  Object.keys(locationStore.filteredLocationHistory).forEach((user) => {
+    Object.keys(locationStore.filteredLocationHistory[user]).forEach(
+      (device) => {
+        locationStore.filteredLocationHistory[user][device].forEach(
+          (location) => {
+            if (locationStore.layers.poi && location.poi) {
+              features.push({
+                type: "Feature",
+                properties: {
+                  type: "poi",
+                  poi: location.poi,
+                  color: getUserColor(user),
+                },
+                geometry: {
+                  type: "Point",
+                  coordinates: [location.lon, location.lat],
+                },
+              });
+            }
+            if (locationStore.layers.points) {
+              features.push({
+                type: "Feature",
+                properties: { type: "point", color: getUserColor(user) },
+                geometry: {
+                  type: "Point",
+                  coordinates: [location.lon, location.lat],
+                },
+              });
+            }
+          }
+        );
+      }
+    );
   });
-  return { type: 'FeatureCollection', features };
+  return { type: "FeatureCollection", features };
 };
 
 const initSourcesAndLayers = () => {
   if (!map) return;
 
   // Lines Source & Layer
-  if (!map.getSource('history-lines')) {
-    map.addSource('history-lines', {
-      type: 'geojson',
-      data: getLinesGeoJSON()
+  if (!map.getSource("history-lines")) {
+    map.addSource("history-lines", {
+      type: "geojson",
+      data: getLinesGeoJSON(),
     });
 
     map.addLayer({
-      id: 'history-lines-layer',
-      type: 'line',
-      source: 'history-lines',
+      id: "history-lines-layer",
+      type: "line",
+      source: "history-lines",
       layout: {
-        'line-join': 'round',
-        'line-cap': 'round',
-        'visibility': locationStore.layers.line ? 'visible' : 'none'
+        "line-join": "round",
+        "line-cap": "round",
+        visibility: locationStore.layers.line ? "visible" : "none",
       },
       paint: {
-        'line-color': ['get', 'color'],
-        'line-width': config.map.polyline?.weight || 3,
-        'line-opacity': config.map.polyline?.opacity || 0.8
-      }
+        "line-color": ["get", "color"],
+        "line-width": config.map.polyline?.weight || 3,
+        "line-opacity": config.map.polyline?.opacity || 0.8,
+      },
     });
   }
 
   // Heatmap Source & Layer
-  if (!map.getSource('history-heatmap')) {
-    map.addSource('history-heatmap', {
-      type: 'geojson',
-      data: getHeatmapGeoJSON()
+  if (!map.getSource("history-heatmap")) {
+    map.addSource("history-heatmap", {
+      type: "geojson",
+      data: getHeatmapGeoJSON(),
     });
 
     map.addLayer({
-      id: 'history-heatmap-layer',
-      type: 'heatmap',
-      source: 'history-heatmap',
+      id: "history-heatmap-layer",
+      type: "heatmap",
+      source: "history-heatmap",
       layout: {
-        'visibility': locationStore.layers.heatmap ? 'visible' : 'none'
+        visibility: locationStore.layers.heatmap ? "visible" : "none",
       },
       paint: {
-        'heatmap-weight': 1,
-        'heatmap-intensity': 1,
-        'heatmap-color': [
-          'interpolate', ['linear'], ['heatmap-density'],
-          0, 'rgba(33,102,172,0)',
-          0.2, 'rgb(103,169,207)',
-          0.4, 'rgb(209,229,240)',
-          0.6, 'rgb(253,219,199)',
-          0.8, 'rgb(239,138,98)',
-          1, config.primaryColor || 'rgb(178,24,43)'
+        "heatmap-weight": 1,
+        "heatmap-intensity": 1,
+        "heatmap-color": [
+          "interpolate",
+          ["linear"],
+          ["heatmap-density"],
+          0,
+          "rgba(33,102,172,0)",
+          0.2,
+          "rgb(103,169,207)",
+          0.4,
+          "rgb(209,229,240)",
+          0.6,
+          "rgb(253,219,199)",
+          0.8,
+          "rgb(239,138,98)",
+          1,
+          config.primaryColor || "rgb(178,24,43)",
         ],
-        'heatmap-radius': config.map.heatmap?.radius || 15,
-        'heatmap-opacity': 0.8
-      }
+        "heatmap-radius": config.map.heatmap?.radius || 15,
+        "heatmap-opacity": 0.8,
+      },
     });
   }
 
   // Accuracy Circles Source & Layer
-  if (!map.getSource('accuracy-circles')) {
-    map.addSource('accuracy-circles', { type: 'geojson', data: getAccuracyCirclesGeoJSON() });
-    map.addLayer({
-      id: 'accuracy-circles-layer',
-      type: 'fill',
-      source: 'accuracy-circles',
-      layout: { 'visibility': locationStore.layers.last ? 'visible' : 'none' },
-      paint: { 'fill-color': ['get', 'color'], 'fill-opacity': config.map.circle?.fillOpacity || 0.2 }
+  if (!map.getSource("accuracy-circles")) {
+    map.addSource("accuracy-circles", {
+      type: "geojson",
+      data: getAccuracyCirclesGeoJSON(),
     });
     map.addLayer({
-      id: 'accuracy-circles-outline',
-      type: 'line',
-      source: 'accuracy-circles',
-      layout: { 'visibility': locationStore.layers.last ? 'visible' : 'none' },
-      paint: { 'line-color': ['get', 'color'], 'line-width': 1, 'line-opacity': 0.5 }
+      id: "accuracy-circles-layer",
+      type: "fill",
+      source: "accuracy-circles",
+      layout: { visibility: locationStore.layers.last ? "visible" : "none" },
+      paint: {
+        "fill-color": ["get", "color"],
+        "fill-opacity": config.map.circle?.fillOpacity || 0.2,
+      },
+    });
+    map.addLayer({
+      id: "accuracy-circles-outline",
+      type: "line",
+      source: "accuracy-circles",
+      layout: { visibility: locationStore.layers.last ? "visible" : "none" },
+      paint: {
+        "line-color": ["get", "color"],
+        "line-width": 1,
+        "line-opacity": 0.5,
+      },
     });
   }
 
   // Points Source & Layers
-  if (!map.getSource('history-points')) {
-    map.addSource('history-points', { type: 'geojson', data: getPointsGeoJSON() });
-    
+  if (!map.getSource("history-points")) {
+    map.addSource("history-points", {
+      type: "geojson",
+      data: getPointsGeoJSON(),
+    });
+
     // Regular History Points
     map.addLayer({
-      id: 'history-points-layer',
-      type: 'circle',
-      source: 'history-points',
-      filter: ['==', 'type', 'point'],
-      layout: { 'visibility': locationStore.layers.points ? 'visible' : 'none' },
+      id: "history-points-layer",
+      type: "circle",
+      source: "history-points",
+      filter: ["==", "type", "point"],
+      layout: { visibility: locationStore.layers.points ? "visible" : "none" },
       paint: {
-        'circle-radius': config.map.circleMarker?.radius || 4,
-        'circle-color': ['get', 'color'],
-        'circle-stroke-width': 1,
-        'circle-stroke-color': '#ffffff'
-      }
+        "circle-radius": config.map.circleMarker?.radius || 4,
+        "circle-color": ["get", "color"],
+        "circle-stroke-width": 1,
+        "circle-stroke-color": "#ffffff",
+      },
     });
 
     // POI Markers
     map.addLayer({
-      id: 'history-poi-layer',
-      type: 'circle',
-      source: 'history-points',
-      filter: ['==', 'type', 'poi'],
-      layout: { 'visibility': locationStore.layers.poi ? 'visible' : 'none' },
+      id: "history-poi-layer",
+      type: "circle",
+      source: "history-points",
+      filter: ["==", "type", "poi"],
+      layout: { visibility: locationStore.layers.poi ? "visible" : "none" },
       paint: {
-        'circle-radius': config.map.poiMarker?.radius || 12,
-        'circle-color': ['get', 'color'],
-        'circle-opacity': config.map.poiMarker?.fillOpacity || 0.4,
-        'circle-stroke-width': 2,
-        'circle-stroke-color': ['get', 'color']
-      }
+        "circle-radius": config.map.poiMarker?.radius || 12,
+        "circle-color": ["get", "color"],
+        "circle-opacity": config.map.poiMarker?.fillOpacity || 0.4,
+        "circle-stroke-width": 2,
+        "circle-stroke-color": ["get", "color"],
+      },
     });
 
     // POI Labels
     map.addLayer({
-      id: 'history-poi-label-layer',
-      type: 'symbol',
-      source: 'history-points',
-      filter: ['==', 'type', 'poi'],
+      id: "history-poi-label-layer",
+      type: "symbol",
+      source: "history-points",
+      filter: ["==", "type", "poi"],
       layout: {
-        'visibility': locationStore.layers.poi ? 'visible' : 'none',
-        'text-field': ['get', 'poi'],
-        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-        'text-size': 12,
-        'text-offset': [0, -1.5],
-        'text-anchor': 'bottom'
+        visibility: locationStore.layers.poi ? "visible" : "none",
+        "text-field": ["get", "poi"],
+        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+        "text-size": 12,
+        "text-offset": [0, -1.5],
+        "text-anchor": "bottom",
       },
       paint: {
-        'text-color': '#000000',
-        'text-halo-color': '#ffffff',
-        'text-halo-width': 2
-      }
+        "text-color": "#000000",
+        "text-halo-color": "#ffffff",
+        "text-halo-width": 2,
+      },
     });
   }
 };
@@ -443,34 +590,62 @@ const initSourcesAndLayers = () => {
 const updateGeoJSON = () => {
   if (!map || !map.isStyleLoaded()) return;
 
-  const linesSource = map.getSource('history-lines');
+  const linesSource = map.getSource("history-lines");
   if (linesSource) linesSource.setData(getLinesGeoJSON());
 
-  const heatmapSource = map.getSource('history-heatmap');
+  const heatmapSource = map.getSource("history-heatmap");
   if (heatmapSource) heatmapSource.setData(getHeatmapGeoJSON());
 
-  if (map.getLayer('history-lines-layer')) {
-    map.setLayoutProperty('history-lines-layer', 'visibility', locationStore.layers.line ? 'visible' : 'none');
+  if (map.getLayer("history-lines-layer")) {
+    map.setLayoutProperty(
+      "history-lines-layer",
+      "visibility",
+      locationStore.layers.line ? "visible" : "none"
+    );
   }
-  if (map.getLayer('history-heatmap-layer')) {
-    map.setLayoutProperty('history-heatmap-layer', 'visibility', locationStore.layers.heatmap ? 'visible' : 'none');
+  if (map.getLayer("history-heatmap-layer")) {
+    map.setLayoutProperty(
+      "history-heatmap-layer",
+      "visibility",
+      locationStore.layers.heatmap ? "visible" : "none"
+    );
   }
-  if (map.getLayer('accuracy-circles-layer')) {
-    map.setLayoutProperty('accuracy-circles-layer', 'visibility', locationStore.layers.last ? 'visible' : 'none');
-    map.setLayoutProperty('accuracy-circles-outline', 'visibility', locationStore.layers.last ? 'visible' : 'none');
+  if (map.getLayer("accuracy-circles-layer")) {
+    map.setLayoutProperty(
+      "accuracy-circles-layer",
+      "visibility",
+      locationStore.layers.last ? "visible" : "none"
+    );
+    map.setLayoutProperty(
+      "accuracy-circles-outline",
+      "visibility",
+      locationStore.layers.last ? "visible" : "none"
+    );
   }
-  if (map.getLayer('history-points-layer')) {
-    map.setLayoutProperty('history-points-layer', 'visibility', locationStore.layers.points ? 'visible' : 'none');
+  if (map.getLayer("history-points-layer")) {
+    map.setLayoutProperty(
+      "history-points-layer",
+      "visibility",
+      locationStore.layers.points ? "visible" : "none"
+    );
   }
-  if (map.getLayer('history-poi-layer')) {
-    map.setLayoutProperty('history-poi-layer', 'visibility', locationStore.layers.poi ? 'visible' : 'none');
-    map.setLayoutProperty('history-poi-label-layer', 'visibility', locationStore.layers.poi ? 'visible' : 'none');
+  if (map.getLayer("history-poi-layer")) {
+    map.setLayoutProperty(
+      "history-poi-layer",
+      "visibility",
+      locationStore.layers.poi ? "visible" : "none"
+    );
+    map.setLayoutProperty(
+      "history-poi-label-layer",
+      "visibility",
+      locationStore.layers.poi ? "visible" : "none"
+    );
   }
-  
-  const accuracySource = map.getSource('accuracy-circles');
+
+  const accuracySource = map.getSource("accuracy-circles");
   if (accuracySource) accuracySource.setData(getAccuracyCirclesGeoJSON());
 
-  const pointsSource = map.getSource('history-points');
+  const pointsSource = map.getSource("history-points");
   if (pointsSource) pointsSource.setData(getPointsGeoJSON());
 };
 
@@ -480,16 +655,28 @@ const fitView = () => {
   if (!map) return;
   const { layers } = locationStore;
   const historyLatLngs = locationStore.filteredLocationHistoryLatLngs;
-  
-  if ((layers.line || layers.points || layers.poi || layers.heatmap) && historyLatLngs.length > 0) {
+
+  if (
+    (layers.line || layers.points || layers.poi || layers.heatmap) &&
+    historyLatLngs.length > 0
+  ) {
     const bounds = new maplibregl.LngLatBounds();
-    historyLatLngs.forEach(ll => bounds.extend([ll.lng !== undefined ? ll.lng : ll[1], ll.lat !== undefined ? ll.lat : ll[0]]));
+    historyLatLngs.forEach((ll) =>
+      bounds.extend([
+        ll.lng !== undefined ? ll.lng : ll[1],
+        ll.lat !== undefined ? ll.lat : ll[0],
+      ])
+    );
     map.fitBounds(bounds, { padding: 50, animate: !isFirstFitView });
     isFirstFitView = false;
   } else if (layers.last && locationStore.lastLocations.length > 0) {
     const bounds = new maplibregl.LngLatBounds();
-    locationStore.lastLocations.forEach(l => bounds.extend([l.lon, l.lat]));
-    map.fitBounds(bounds, { padding: 50, maxZoom: config.map.maxNativeZoom || 16, animate: !isFirstFitView });
+    locationStore.lastLocations.forEach((l) => bounds.extend([l.lon, l.lat]));
+    map.fitBounds(bounds, {
+      padding: 50,
+      maxZoom: config.map.maxNativeZoom || 16,
+      animate: !isFirstFitView,
+    });
     isFirstFitView = false;
   }
 };
@@ -500,19 +687,22 @@ onMounted(() => {
   map = new maplibregl.Map({
     container: mapContainer.value,
     style: currentStyle.value,
-    center: [parseFloat(locationStore.map.center.lng) || 0, parseFloat(locationStore.map.center.lat) || 0], // [lng, lat]
-    zoom: locationStore.map.zoom
+    center: [
+      parseFloat(locationStore.map.center.lng) || 0,
+      parseFloat(locationStore.map.center.lat) || 0,
+    ], // [lng, lat]
+    zoom: locationStore.map.zoom,
   });
 
-  map.addControl(new maplibregl.NavigationControl(), 'top-left');
+  map.addControl(new maplibregl.NavigationControl(), "top-left");
 
-  map.on('style.load', () => {
+  map.on("style.load", () => {
     initSourcesAndLayers();
     updateGeoJSON();
     fitView();
   });
 
-  map.on('load', () => {
+  map.on("load", () => {
     renderMarkers();
     initSourcesAndLayers();
     updateGeoJSON();
@@ -526,33 +716,53 @@ watch(currentStyle, (newStyle) => {
   }
 });
 
-watch(() => locationStore.filteredLastLocations, () => {
-  renderMarkers();
-}, { deep: true });
+watch(
+  () => locationStore.filteredLastLocations,
+  () => {
+    renderMarkers();
+  },
+  { deep: true }
+);
 
-watch([
-  () => locationStore.filteredLocationHistoryLatLngGroups, 
-  () => locationStore.filteredLocationHistoryLatLngs,
-  () => locationStore.layers
-], () => {
-  updateGeoJSON();
-}, { deep: true });
+watch(
+  [
+    () => locationStore.filteredLocationHistoryLatLngGroups,
+    () => locationStore.filteredLocationHistoryLatLngs,
+    () => locationStore.layers,
+  ],
+  () => {
+    updateGeoJSON();
+  },
+  { deep: true }
+);
 
 watch(() => locationStore.fitViewToggle, fitView);
-watch(() => locationStore.lastLocations, () => {
-  if (config.onLocationChange?.fitView) fitView();
-}, { deep: true });
-watch(() => locationStore.locationHistory, () => {
-  updateGeoJSON();
-  fitView();
-}, { deep: true });
-watch(() => locationStore.playbackPoint, () => {
-  renderPlaybackMarker();
-}, { deep: true });
+watch(
+  () => locationStore.lastLocations,
+  () => {
+    if (config.onLocationChange?.fitView) fitView();
+  },
+  { deep: true }
+);
+watch(
+  () => locationStore.locationHistory,
+  () => {
+    updateGeoJSON();
+    fitView();
+  },
+  { deep: true }
+);
+watch(
+  () => locationStore.playbackPoint,
+  () => {
+    renderPlaybackMarker();
+  },
+  { deep: true }
+);
 
 onUnmounted(() => {
   if (map) map.remove();
-  activeMarkers.forEach(data => render(null, data.popupContainer));
+  activeMarkers.forEach((data) => render(null, data.popupContainer));
 });
 </script>
 
@@ -577,13 +787,21 @@ html.dark .playback-popup .maplibregl-popup-content {
   color: #f9fafb;
 }
 html.dark .playback-popup.maplibregl-popup-anchor-top .maplibregl-popup-tip,
-html.dark .playback-popup.maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
-html.dark .playback-popup.maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+html.dark
+  .playback-popup.maplibregl-popup-anchor-top-left
+  .maplibregl-popup-tip,
+html.dark
+  .playback-popup.maplibregl-popup-anchor-top-right
+  .maplibregl-popup-tip {
   border-bottom-color: #1f2937;
 }
 html.dark .playback-popup.maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
-html.dark .playback-popup.maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
-html.dark .playback-popup.maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
+html.dark
+  .playback-popup.maplibregl-popup-anchor-bottom-left
+  .maplibregl-popup-tip,
+html.dark
+  .playback-popup.maplibregl-popup-anchor-bottom-right
+  .maplibregl-popup-tip {
   border-top-color: #1f2937;
 }
 html.dark .playback-popup.maplibregl-popup-anchor-left .maplibregl-popup-tip {

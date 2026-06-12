@@ -6,7 +6,6 @@ export const LOG_INFO = "INFO";
 export const LOG_WARNING = "WARNING";
 export const LOG_ERROR = "ERROR";
 
-/* eslint-disable no-console */
 function getLogStyle(level) {
   // Lazy-access config to avoid circular dependency issues during module evaluation
   const config = (window.owntracks && window.owntracks.config) || {};
@@ -25,7 +24,6 @@ function getLogStyle(level) {
     padding: 3px;
   `;
 }
-/* eslint-enable no-console */
 
 /**
  * Log a message to the browser's console.
@@ -40,11 +38,7 @@ function getLogStyle(level) {
 export function log(label, message, level = LOG_INFO) {
   const config = (window.owntracks && window.owntracks.config) || {};
 
-  if (
-    level !== LOG_INFO &&
-    level !== LOG_WARNING &&
-    level !== LOG_ERROR
-  ) {
+  if (level !== LOG_INFO && level !== LOG_WARNING && level !== LOG_ERROR) {
     console.warn(`[logging] invalid log level: ${level}`, label);
     return;
   }
@@ -53,12 +47,12 @@ export function log(label, message, level = LOG_INFO) {
     return;
   }
 
-  const logFunc = {
-    [LOG_INFO]: console.info,
-    [LOG_WARNING]: console.warn,
-    [LOG_ERROR]: console.error,
-  }[level] || console.log;
-  /* eslint-enable no-console */
+  const logFunc =
+    {
+      [LOG_INFO]: console.info,
+      [LOG_WARNING]: console.warn,
+      [LOG_ERROR]: console.error,
+    }[level] || console.log;
 
   logFunc(
     `%c${label}`,
