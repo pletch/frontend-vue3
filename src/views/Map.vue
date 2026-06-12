@@ -501,8 +501,7 @@ onMounted(() => {
     container: mapContainer.value,
     style: currentStyle.value,
     center: [parseFloat(locationStore.map.center.lng) || 0, parseFloat(locationStore.map.center.lat) || 0], // [lng, lat]
-    zoom: locationStore.map.zoom,
-    attributionControl: false
+    zoom: locationStore.map.zoom
   });
 
   map.addControl(new maplibregl.NavigationControl(), 'top-left');
