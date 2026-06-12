@@ -1,5 +1,5 @@
 <template>
-  <div class="px-2 py-1 min-w-[200px] max-w-[350px]">
+  <div ref="rootElement" class="px-2 py-1 min-w-[200px] max-w-[350px]">
     <div class="inline-block relative -top-1 text-primary font-bold text-lg">
       {{ deviceName }}
     </div>
@@ -12,21 +12,46 @@
         class="self-start mr-5 w-16 h-16 rounded-md shadow-sm object-cover border border-gray-100"
       />
       <ul class="list-none p-0 m-0 space-y-3">
-        <li :title="$t('Timestamp')" class="flex items-start space-x-3 text-sm text-gray-700">
-          <ClockIcon class="w-4 h-4 flex-shrink-0 text-primary mt-0.5" aria-hidden="true" role="img" />
+        <li
+          :title="$t('Timestamp')"
+          class="flex items-start space-x-3 text-sm text-gray-700"
+        >
+          <ClockIcon
+            class="w-4 h-4 flex-shrink-0 text-primary mt-0.5"
+            aria-hidden="true"
+            role="img"
+          />
           <span>
             {{ new Date(timestamp * 1000).toLocaleString(config.locale) }}
-            <span v-if="timeZone" class="block text-xs font-mono text-gray-500 mt-0.5">
+            <span
+              v-if="timeZone"
+              class="block text-xs font-mono text-gray-500 mt-0.5"
+            >
               {{ timeZone }}
             </span>
           </span>
         </li>
-        <li v-if="lastSeen" :title="$t('Last seen')" class="flex items-start space-x-3 text-sm text-gray-700">
-          <SendIcon class="w-4 h-4 flex-shrink-0 text-primary mt-0.5" aria-hidden="true" role="img" />
+        <li
+          v-if="lastSeen"
+          :title="$t('Last seen')"
+          class="flex items-start space-x-3 text-sm text-gray-700"
+        >
+          <SendIcon
+            class="w-4 h-4 flex-shrink-0 text-primary mt-0.5"
+            aria-hidden="true"
+            role="img"
+          />
           <span>{{ lastSeen }}</span>
         </li>
-        <li :title="$t('Location')" class="flex items-start space-x-3 text-sm text-gray-700">
-          <MapPinIcon class="w-4 h-4 flex-shrink-0 text-primary mt-0.5" aria-hidden="true" role="img" />
+        <li
+          :title="$t('Location')"
+          class="flex items-start space-x-3 text-sm text-gray-700"
+        >
+          <MapPinIcon
+            class="w-4 h-4 flex-shrink-0 text-primary mt-0.5"
+            aria-hidden="true"
+            role="img"
+          />
           <span>
             {{ lat }}
             <br />
@@ -35,28 +60,79 @@
             {{ humanReadableAltitude(alt, locationStore.units) }}
           </span>
         </li>
-        <li v-if="address" :title="$t('Address')" class="flex items-start space-x-3 text-sm text-gray-700">
-          <HomeIcon class="w-4 h-4 flex-shrink-0 text-primary mt-0.5" aria-hidden="true" role="img" />
-          <span>{{ address }}</span>
+        <li
+          v-if="displayAddress || isFetchingAddress"
+          :title="$t('Address')"
+          class="flex items-start space-x-3 text-sm text-gray-700"
+        >
+          <HomeIcon
+            class="w-4 h-4 flex-shrink-0 text-primary mt-0.5"
+            aria-hidden="true"
+            role="img"
+          />
+          <span v-if="displayAddress">{{ displayAddress }}</span>
+          <span v-else class="text-gray-400 italic">
+            {{ $t("Fetching address...") }}
+          </span>
         </li>
-        <li v-if="typeof battery === 'number'" :title="$t('Battery')" class="flex items-start space-x-3 text-sm text-gray-700">
-          <BatteryChargingIcon v-if="batteryStatus === 2" class="w-4 h-4 flex-shrink-0 text-green-500 mt-0.5" aria-hidden="true" role="img" />
-          <BatteryIcon v-else class="w-4 h-4 flex-shrink-0 text-primary mt-0.5" aria-hidden="true" role="img" />
+        <li
+          v-if="typeof battery === 'number'"
+          :title="$t('Battery')"
+          class="flex items-start space-x-3 text-sm text-gray-700"
+        >
+          <BatteryChargingIcon
+            v-if="batteryStatus === 2"
+            class="w-4 h-4 flex-shrink-0 text-green-500 mt-0.5"
+            aria-hidden="true"
+            role="img"
+          />
+          <BatteryIcon
+            v-else
+            class="w-4 h-4 flex-shrink-0 text-primary mt-0.5"
+            aria-hidden="true"
+            role="img"
+          />
           <span>{{ battery }} %</span>
         </li>
-        <li v-if="typeof speed === 'number'" :title="$t('Speed')" class="flex items-start space-x-3 text-sm text-gray-700">
-          <ZapIcon class="w-4 h-4 flex-shrink-0 text-primary mt-0.5" aria-hidden="true" role="img" />
+        <li
+          v-if="typeof speed === 'number'"
+          :title="$t('Speed')"
+          class="flex items-start space-x-3 text-sm text-gray-700"
+        >
+          <ZapIcon
+            class="w-4 h-4 flex-shrink-0 text-primary mt-0.5"
+            aria-hidden="true"
+            role="img"
+          />
           <span>{{ humanReadableSpeed(speed, locationStore.units) }}</span>
         </li>
-        <li v-if="activity" :title="$t('Activity')" class="flex items-start space-x-3 text-sm text-gray-700">
-          <ActivityIcon class="w-4 h-4 flex-shrink-0 text-primary mt-0.5" aria-hidden="true" role="img" />
+        <li
+          v-if="activity"
+          :title="$t('Activity')"
+          class="flex items-start space-x-3 text-sm text-gray-700"
+        >
+          <ActivityIcon
+            class="w-4 h-4 flex-shrink-0 text-primary mt-0.5"
+            aria-hidden="true"
+            role="img"
+          />
           <span class="capitalize">{{ activity }}</span>
         </li>
-        <li v-if="wifi.ssid" :title="$t('WiFi')" class="flex items-start space-x-3 text-sm text-gray-700">
-          <WifiIcon class="w-4 h-4 flex-shrink-0 text-primary mt-0.5" aria-hidden="true" role="img" />
+        <li
+          v-if="wifi.ssid"
+          :title="$t('WiFi')"
+          class="flex items-start space-x-3 text-sm text-gray-700"
+        >
+          <WifiIcon
+            class="w-4 h-4 flex-shrink-0 text-primary mt-0.5"
+            aria-hidden="true"
+            role="img"
+          />
           <span>
             {{ wifi.ssid }}
-            <span v-if="wifi.bssid" class="text-xs text-gray-500">({{ wifi.bssid }})</span>
+            <span v-if="wifi.bssid" class="text-xs text-gray-500">
+              ({{ wifi.bssid }})
+            </span>
           </span>
         </li>
       </ul>
@@ -72,7 +148,8 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { ref, computed, watch } from "vue";
+import { useIntersectionObserver } from "@vueuse/core";
 import {
   BatteryIcon,
   BatteryChargingIcon,
@@ -171,8 +248,60 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
-
 });
+
+const rootElement = ref(null);
+const resolvedAddress = ref(null);
+const isFetchingAddress = ref(false);
+
+const displayAddress = computed(() => resolvedAddress.value || props.address);
+
+useIntersectionObserver(rootElement, ([{ isIntersecting }]) => {
+  if (isIntersecting && !displayAddress.value && !isFetchingAddress.value) {
+    fetchAddress();
+  }
+});
+
+const fetchAddress = async () => {
+  isFetchingAddress.value = true;
+  try {
+    const res = await fetch(
+      `https://photon.komoot.io/reverse?lon=${props.lon}&lat=${props.lat}`
+    );
+    const data = await res.json();
+    if (data.features && data.features.length > 0) {
+      const p = data.features[0].properties;
+      const addrParts = [];
+      if (p.name) addrParts.push(p.name);
+      if (p.housenumber && p.street) {
+        addrParts.push(`${p.housenumber} ${p.street}`);
+      } else if (p.street) {
+        addrParts.push(p.street);
+      }
+      if (p.city || p.town || p.village)
+        addrParts.push(p.city || p.town || p.village);
+      if (p.state) addrParts.push(p.state);
+      if (p.country) addrParts.push(p.country);
+
+      if (addrParts.length > 0) {
+        resolvedAddress.value = addrParts.join(", ");
+      } else {
+        resolvedAddress.value = "Address not found";
+      }
+    }
+  } catch (e) {
+    console.error("Photon API Error:", e);
+  } finally {
+    isFetchingAddress.value = false;
+  }
+};
+
+watch(
+  () => props.lat,
+  () => {
+    resolvedAddress.value = null; // Reset if the marker location changes
+  }
+);
 
 /**
  * Return the face image as a data URI string which can be used for an
