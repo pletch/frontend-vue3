@@ -1,7 +1,6 @@
 # OwnTracks Frontend
 
 ![Version](https://img.shields.io/github/package-json/v/owntracks/frontend)
-[![Docker Pulls](https://img.shields.io/docker/pulls/owntracks/frontend)](https://hub.docker.com/r/owntracks/frontend)
 [![Build](https://github.com/owntracks/frontend/workflows/Build/badge.svg)](https://github.com/owntracks/frontend/actions?query=workflow%3ABuild+branch%3Amain)
 [![Tests](https://github.com/owntracks/frontend/workflows/Tests/badge.svg)](https://github.com/owntracks/frontend/actions?query=workflow%3ATests+branch%3Amain)
 [![Lint](https://github.com/owntracks/frontend/workflows/Lint/badge.svg)](https://github.com/owntracks/frontend/actions?query=workflow%3ALint+branch%3Amain)
@@ -12,9 +11,17 @@
 
 ## Introduction
 
-This is a web interface for [OwnTracks](https://github.com/owntracks/recorder) built as
+This is an **unofficial fork** of the web interface for [OwnTracks](https://github.com/owntracks/recorder) built as
 a Vue 3 single page application. The recorder itself already ships with some basic web
 pages, this is a more advanced interface with more functionality, all in one place.
+
+This fork introduces several major architectural improvements and features over the upstream repository:
+- Complete migration to Vue 3 Composition API and Pinia state management.
+- UI styling powered by Tailwind CSS.
+- High-performance native WebGL hardware acceleration via MapLibre GL JS (replacing Leaflet).
+- Route playback animation with dynamic activity states and velocity tracking.
+- Dynamic reverse-geocoding via Photon API for missing addresses.
+- Enhanced map markers with dynamic user activity glyphs and battery charging indicators.
 
 ![Map features](https://raw.githubusercontent.com/owntracks/frontend/main/docs/images/map-features.png)
 
@@ -38,50 +45,10 @@ pages, this is a more advanced interface with more functionality, all in one pla
 
 ## Installation
 
-### Docker
+> [!NOTE]
+> A pre-built Docker image is **no longer available** for this fork. You must build the project manually using `npm` and deploy the contents of the `dist/` directory.
 
-A pre-built Docker image is available on Docker Hub as [`owntracks/frontend`](https://hub.docker.com/r/owntracks/frontend).
-
-You can start a container directly via `docker run`:
-
-```console
-$ docker run -d -p 80:80 -e SERVER_HOST=otrecorder-host -e SERVER_PORT=8083 owntracks/frontend
-```
-
-Or you can use `docker-compose` (if you also run the OwnTracks Recorder with the default
-compose config, and the service is named `otrecorder`):
-
-```yaml
-version: "3"
-
-services:
-  owntracks-frontend:
-    image: owntracks/frontend
-    ports:
-      - 80:80
-    volumes:
-      - ./path/to/custom/config.js:/usr/share/nginx/html/config/config.js
-    environment:
-      - SERVER_HOST=otrecorder
-      - SERVER_PORT=8083
-    restart: unless-stopped
-```
-
-To change the port on which the nginx server will listen on, set the
-`LISTEN_PORT` enviroment variable - default is 80.
-
-To build the image from source replace `image:` with:
-
-```yaml
-build:
-  context: ./owntracks-frontend
-  dockerfile: docker/Dockerfile
-```
-
-(assuming you have this repository cloned to `owntracks-frontend` in the same
-directory as `docker-compose.yml`)
-
-### Manually
+### Manual Build
 
 - Run `npm install` to install dependencies
 - Run `npm run build` to compile and minify for production
