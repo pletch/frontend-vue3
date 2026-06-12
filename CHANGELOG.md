@@ -16,6 +16,7 @@ Dates are in UTC.
 - Upgraded the pop-up modal to gracefully display current Activity states and Velocity.
 - Parse Battery Status (`bs`) payload to dynamically display a green charging icon when device is plugged in.
 - Implemented an option to hide stale map markers older than 48 hours within "Display settings".
+- Integrated Photon API to dynamically reverse-geocode and display the closest address in the map popup when a device location lacks a predefined address.
 - Guaranteed that individually selected users bypass the stale marker filter to always display.
 - Enhanced Date Picker with additional shortcuts for "4 hours", "8 hours", "12 hours", and "24 hours".
 - Fixed mobile rendering bugs in the Date Picker by injecting responsive CSS overrides to correctly stack the time selection panels without overflowing the screen.
