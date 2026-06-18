@@ -7,7 +7,7 @@
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
 [![License](https://img.shields.io/github/license/owntracks/frontend?color=d63e97)](https://github.com/owntracks/frontend/blob/main/LICENSE)
 
-![Screenshot](https://raw.githubusercontent.com/pletch/frontend-vue3/main/docs/images/map-markers.png)
+![Screenshot](./docs/images/map-markers.png)
 
 ## Introduction
 
@@ -24,9 +24,9 @@ This fork introduces several major architectural improvements and features over 
 - Enhanced map markers with dynamic user activity glyphs and battery charging indicators.
 - Display of units in Imperial (nmi, ft, mph) or Metric (km, m, kph)
 
-![Map Marker Details](https://raw.githubusercontent.com/pletch/frontend-vue3/main/docs/images/map-marker-details.png)
+![Map Marker Details](./docs/images/map-marker-detail.png)
 
-![Route Playback](https://raw.githubusercontent.com/pletch/frontend-vue3/main/docs/images/route-playback-ds.mp4)
+![Route Playback](./docs/images/route-playback-ds.gif)
 
 ## Features
 
