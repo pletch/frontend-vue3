@@ -7,7 +7,7 @@
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
 [![License](https://img.shields.io/github/license/owntracks/frontend?color=d63e97)](https://github.com/owntracks/frontend/blob/main/LICENSE)
 
-![Screenshot](https://raw.githubusercontent.com/owntracks/frontend/main/docs/images/screenshot.png)
+![Screenshot](https://raw.githubusercontent.com/pletch/frontend-vue3/main/docs/images/map-markers.png)
 
 ## Introduction
 
@@ -22,8 +22,11 @@ This fork introduces several major architectural improvements and features over 
 - Route playback animation with dynamic activity states and velocity tracking.
 - Dynamic reverse-geocoding via Photon API for missing addresses.
 - Enhanced map markers with dynamic user activity glyphs and battery charging indicators.
+- Display of units in Imperial (nmi, ft, mph) or Metric (km, m, kph)
 
-![Map features](https://raw.githubusercontent.com/owntracks/frontend/main/docs/images/map-features.png)
+![Map Marker Details](https://raw.githubusercontent.com/pletch/frontend-vue3/main/docs/images/map-marker-details.png)
+
+![Route Playback](https://raw.githubusercontent.com/pletch/frontend-vue3/main/docs/images/route-playback-ds.mp4)
 
 ## Features
 
