@@ -93,10 +93,10 @@ describe("appendLocationToHistory", () => {
 
   test("derived getters pick up an in-place append", () => {
     store.appendLocationToHistory(location(100));
-    expect(store.filteredLocationHistoryLatLngs).toHaveLength(1);
+    expect(store.mapGeoData.count).toBe(1);
 
     store.appendLocationToHistory(location(200));
-    expect(store.filteredLocationHistoryLatLngs).toHaveLength(2);
+    expect(store.mapGeoData.count).toBe(2);
   });
 
   test("selectedDeviceHistory follows the current selection", () => {
@@ -261,5 +261,146 @@ describe("mapGeoData", () => {
     });
     expect(store.mapGeoData.count).toBe(3);
     expect(store.mapGeoData.segments[0].coordinates).toHaveLength(3);
+  });
+});
+
+describe("incremental derivation matches a full rebuild", () => {
+  let store;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    setActivePinia(createPinia());
+    store = useLocationStore();
+    store.locationHistory = {};
+  });
+
+  /**
+   * Snapshot the published derivation in a comparable form.
+   *
+   * @param {Object} data `mapGeoData` value
+   * @returns {Object} Plain, comparable representation
+   */
+  function snapshot(data) {
+    return {
+      segments: data.segments.map((segment) => ({
+        user: segment.user,
+        device: segment.device,
+        coordinates: segment.coordinates.map((c) => [...c]),
+      })),
+      pointsByUser: [...data.pointsByUser.entries()].map(([user, coords]) => [
+        user,
+        coords.map((c) => [...c]),
+      ]),
+      pois: data.pois.map((poi) => ({
+        ...poi,
+        coordinate: [...poi.coordinate],
+      })),
+      bounds: data.bounds,
+      count: data.count,
+    };
+  }
+
+  test("appending one at a time equals deriving the whole set at once", () => {
+    const locations = [];
+    for (let i = 0; i < 50; i++) {
+      locations.push({
+        username: "alice",
+        device: "phone",
+        tst: 1000 + i * 30,
+        lat: 51 + i * 0.001,
+        lon: -0.1 + i * 0.001,
+        acc: 10,
+        ...(i % 20 === 0 ? { poi: `POI ${i}` } : {}),
+      });
+    }
+
+    locations.forEach((l) => store.appendLocationToHistory(l));
+    const incremental = snapshot(store.mapGeoData);
+
+    // Force the full-rebuild path over the identical history.
+    store.notifyHistoryChanged();
+    const rebuilt = snapshot(store.mapGeoData);
+
+    expect(incremental).toEqual(rebuilt);
+    expect(incremental.count).toBe(50);
+  });
+
+  test("agrees across several users and devices", () => {
+    const users = ["alice", "bob"];
+    const devices = ["phone", "tablet"];
+    let tst = 1000;
+    users.forEach((username, u) =>
+      devices.forEach((device, d) => {
+        for (let i = 0; i < 15; i++) {
+          store.appendLocationToHistory({
+            username,
+            device,
+            tst: (tst += 30),
+            lat: 40 + u + d + i * 0.01,
+            lon: 10 + u - d + i * 0.01,
+            acc: 5,
+          });
+        }
+      })
+    );
+
+    const incremental = snapshot(store.mapGeoData);
+    store.notifyHistoryChanged();
+    expect(incremental).toEqual(snapshot(store.mapGeoData));
+  });
+
+  test("agrees after an out-of-order point forces a rebuild", () => {
+    [100, 200, 400].forEach((tst) =>
+      store.appendLocationToHistory({
+        username: "alice",
+        device: "phone",
+        tst,
+        lat: 1 + tst / 1000,
+        lon: 2 + tst / 1000,
+      })
+    );
+    // Lands between existing points, so the tail of the derivation is invalid.
+    store.appendLocationToHistory({
+      username: "alice",
+      device: "phone",
+      tst: 300,
+      lat: 1.3,
+      lon: 2.3,
+    });
+
+    const afterInsert = snapshot(store.mapGeoData);
+    store.notifyHistoryChanged();
+    expect(afterInsert).toEqual(snapshot(store.mapGeoData));
+    expect(afterInsert.segments[0].coordinates).toEqual([
+      [2.1, 1.1],
+      [2.2, 1.2],
+      [2.3, 1.3],
+      [2.4, 1.4],
+    ]);
+  });
+
+  test("agrees after replacing a point at an existing timestamp", () => {
+    [100, 200].forEach((tst) =>
+      store.appendLocationToHistory({
+        username: "alice",
+        device: "phone",
+        tst,
+        lat: 1,
+        lon: 2,
+      })
+    );
+    store.appendLocationToHistory({
+      username: "alice",
+      device: "phone",
+      tst: 200,
+      lat: 9,
+      lon: 9,
+    });
+
+    const afterReplace = snapshot(store.mapGeoData);
+    store.notifyHistoryChanged();
+    expect(afterReplace).toEqual(snapshot(store.mapGeoData));
+    expect(afterReplace.count).toBe(2);
+    expect(afterReplace.bounds.maxLat).toBe(9);
   });
 });

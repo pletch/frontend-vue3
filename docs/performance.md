@@ -159,3 +159,41 @@ against 29 ms before. Cumulatively against the original baseline:
 Per-update cost still grows with history size, because an update re-runs the
 whole pass rather than touching only what changed. Making updates incremental,
 sampling at low zoom, and streaming the initial fetch are the remaining work.
+
+## After: incremental updates
+
+Profiling a live update after the single-pass change showed `mapGeoData` was
+89% of the remaining cost (135 ms of 152 ms across 20 updates), because a
+single new point still re-derived all 98,000 points.
+
+The derivation is now maintained incrementally instead of recomputed. The
+store keeps the derived structure as internal state with a per-device cursor,
+and one incoming location extends it in constant time. A full rebuild still
+happens whenever the history is replaced, or when a point arrives out of order
+or replaces an existing timestamp, since either invalidates the tail.
+
+| Dataset | Full load | Per live WebSocket update |
+| ------- | --------- | ------------------------- |
+| 10,000  | 36 ms     | 0.42 ms                   |
+| 100,000 | 104 ms    | 0.60 ms                   |
+
+The point is not only that this is faster: per-update cost is now effectively
+flat in the size of the history (0.42 ms at 10k against 0.60 ms at 100k),
+where it had been proportional to it. Live tracking no longer degrades as more
+history is loaded.
+
+Because the incremental and full-rebuild paths must agree, the test suite
+asserts they produce identical output across multiple users and devices, and
+under both accuracy filtering and line splitting.
+
+### Cumulative
+
+| Dataset           | Baseline | Now     | Change |
+| ----------------- | -------- | ------- | ------ |
+| Full load, 10k    | 156 ms   | 36 ms   | 4.3x   |
+| Full load, 100k   | 1281 ms  | 104 ms  | 12x    |
+| Live update, 10k  | 131 ms   | 0.42 ms | 310x   |
+| Live update, 100k | 1015 ms  | 0.60 ms | 1690x  |
+
+Remaining: client-side sampling at low zoom, and a streaming decode with
+byte-level progress for the initial fetch.

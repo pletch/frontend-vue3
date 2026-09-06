@@ -81,181 +81,145 @@ export const useLocationStore = defineStore("location", () => {
     });
   });
 
-  const filteredLocationHistory = computed(() => {
-    bench.mark("store:filteredLocationHistory");
-    const history = {};
-    Object.keys(locationHistory.value).forEach((user) => {
-      history[user] = {};
-      Object.keys(locationHistory.value[user]).forEach((device) => {
-        history[user][device] = [];
-        locationHistory.value[user][device].forEach((location) => {
-          if (
-            config.filters.minAccuracy !== null &&
-            location.acc > config.filters.minAccuracy
-          )
-            return;
-          history[user][device].push(location);
-        });
-      });
-    });
-    bench.measure(
-      "store:filteredLocationHistory",
-      getLocationHistoryCount(history)
-    );
-    return history;
-  });
-
-  const filteredLocationHistoryLatLngs = computed(() => {
-    bench.mark("store:filteredLocationHistoryLatLngs");
-    const latLngs = [];
-    const history = filteredLocationHistory.value;
-    Object.keys(history).forEach((user) => {
-      Object.keys(history[user]).forEach((device) => {
-        history[user][device].forEach((location) => {
-          latLngs.push({ lat: location.lat, lng: location.lon });
-        });
-      });
-    });
-    bench.measure("store:filteredLocationHistoryLatLngs", latLngs.length);
-    return latLngs;
-  });
-
-  const filteredLocationHistoryLatLngGroups = computed(() => {
-    bench.mark("store:filteredLocationHistoryLatLngGroups");
-    const groups = [];
-    const history = filteredLocationHistory.value;
-    Object.keys(history).forEach((user) => {
-      Object.keys(history[user]).forEach((device) => {
-        let latLngs = [];
-        history[user][device].forEach((location) => {
-          const latLng = { lat: location.lat, lng: location.lon };
-          if (
-            typeof config.map.maxPointDistance === "number" &&
-            config.map.maxPointDistance > 0 &&
-            latLngs.length > 0
-          ) {
-            const lastLatLng = latLngs.slice(-1)[0];
-            if (
-              distanceBetweenCoordinates(lastLatLng, latLng) >
-              config.map.maxPointDistance
-            ) {
-              groups.push({ user, device, latLngs });
-              latLngs = [];
-            }
-          }
-          latLngs.push(latLng);
-        });
-        if (latLngs.length > 0) {
-          groups.push({ user, device, latLngs });
-        }
-      });
-    });
-    bench.measure(
-      "store:filteredLocationHistoryLatLngGroups",
-      groups.reduce((total, group) => total + group.latLngs.length, 0)
-    );
-    return groups;
-  });
+  // Configuration that shapes the derivation. Read once: the user config is
+  // merged at module evaluation time and does not change at runtime.
+  const { minAccuracy } = config.filters;
+  const maxPointDistance =
+    typeof config.map.maxPointDistance === "number" &&
+    config.map.maxPointDistance > 0
+      ? config.map.maxPointDistance
+      : null;
 
   /**
-   * Everything the map needs, derived in a single pass over the history.
+   * Create an empty derivation state.
    *
-   * The previous chain walked the data five times: three chained store getters
-   * and then a rebuild of each GeoJSON `FeatureCollection`. This produces the
-   * coordinate arrays once, in the shape MapLibre consumes, so that building
-   * the feature collections costs nothing proportional to the number of points.
+   * `devices` holds the per-device cursor needed to extend the derivation one
+   * point at a time; it is internal and never published.
    *
-   * Coordinates are `[lng, lat]` throughout, matching GeoJSON order.
-   *
-   * @returns {Object} Line segments, per-user point arrays, POIs and bounds
+   * @returns {Object} Fresh derivation state
    */
-  const mapGeoData = computed(() => {
-    bench.mark("store:mapGeoData");
-
-    const history = locationHistory.value;
-    const { minAccuracy } = config.filters;
-    const maxPointDistance =
-      typeof config.map.maxPointDistance === "number" &&
-      config.map.maxPointDistance > 0
-        ? config.map.maxPointDistance
-        : null;
-
-    const segments = [];
-    const pointsByUser = new Map();
-    const pois = [];
-    const bounds = {
-      minLat: Infinity,
-      minLng: Infinity,
-      maxLat: -Infinity,
-      maxLng: -Infinity,
+  function createDerivedState() {
+    return {
+      segments: [],
+      pointsByUser: new Map(),
+      pois: [],
+      bounds: {
+        minLat: Infinity,
+        minLng: Infinity,
+        maxLat: -Infinity,
+        maxLng: -Infinity,
+      },
+      count: 0,
+      devices: new Map(),
     };
-    let count = 0;
+  }
+
+  let derived = createDerivedState();
+
+  /**
+   * Everything the map needs: line segments, per-user coordinate arrays, POIs
+   * and bounds, with coordinates as `[lng, lat]` to match GeoJSON order.
+   *
+   * This is maintained incrementally rather than recomputed, so that a single
+   * incoming location costs a constant amount of work instead of a full pass
+   * over the history. A fresh wrapper object is published on every change so
+   * that watchers comparing by identity still fire.
+   */
+  const mapGeoData = shallowRef(null);
+
+  /** Publish the current derivation state to `mapGeoData`. */
+  function publishDerived() {
+    mapGeoData.value = {
+      segments: derived.segments,
+      pointsByUser: derived.pointsByUser,
+      pois: derived.pois,
+      bounds: derived.count > 0 ? { ...derived.bounds } : null,
+      count: derived.count,
+    };
+  }
+
+  /**
+   * Extend the derivation with one location, assumed to come after everything
+   * already recorded for that device.
+   *
+   * @param {User} user Username
+   * @param {Device} device Device name
+   * @param {OTLocation} location Location to add
+   */
+  function extendDerived(user, device, location) {
+    if (minAccuracy !== null && location.acc > minAccuracy) {
+      return;
+    }
+
+    const { lat, lon } = location;
+    const key = `${user}\u0000${device}`;
+    let cursor = derived.devices.get(key);
+    if (!cursor) {
+      cursor = { coordinates: [], inSegments: false, lastLatLng: null };
+      derived.devices.set(key, cursor);
+    }
+
+    // Break the line rather than drawing across a large jump.
+    if (
+      maxPointDistance !== null &&
+      cursor.lastLatLng !== null &&
+      distanceBetweenCoordinates(cursor.lastLatLng, { lat, lng: lon }) >
+        maxPointDistance
+    ) {
+      cursor.coordinates = [];
+      cursor.inSegments = false;
+    }
+
+    const coordinate = [lon, lat];
+    cursor.coordinates.push(coordinate);
+    // A segment only becomes a line once it has a second point.
+    if (!cursor.inSegments && cursor.coordinates.length === 2) {
+      derived.segments.push({ user, device, coordinates: cursor.coordinates });
+      cursor.inSegments = true;
+    }
+
+    let userPoints = derived.pointsByUser.get(user);
+    if (!userPoints) {
+      userPoints = [];
+      derived.pointsByUser.set(user, userPoints);
+    }
+    userPoints.push(coordinate);
+
+    const { bounds } = derived;
+    if (lat < bounds.minLat) bounds.minLat = lat;
+    if (lat > bounds.maxLat) bounds.maxLat = lat;
+    if (lon < bounds.minLng) bounds.minLng = lon;
+    if (lon > bounds.maxLng) bounds.maxLng = lon;
+
+    if (location.poi) {
+      derived.pois.push({ user, poi: location.poi, coordinate });
+    }
+
+    cursor.lastLatLng = { lat, lng: lon };
+    derived.count += 1;
+  }
+
+  /** Rebuild the derivation from scratch over the whole history. */
+  function rebuildDerived() {
+    bench.mark("store:rebuildDerived");
+    derived = createDerivedState();
+    const history = locationHistory.value;
 
     Object.keys(history).forEach((user) => {
-      let userPoints = pointsByUser.get(user);
-      if (!userPoints) {
-        userPoints = [];
-        pointsByUser.set(user, userPoints);
-      }
-
       Object.keys(history[user]).forEach((device) => {
         const locations = history[user][device];
-        let segment = [];
-        let previous = null;
-
         for (let i = 0; i < locations.length; i++) {
-          const location = locations[i];
-          if (minAccuracy !== null && location.acc > minAccuracy) {
-            continue;
-          }
-
-          const { lat, lon } = location;
-
-          // Break the segment rather than drawing across a large jump.
-          if (
-            maxPointDistance !== null &&
-            previous !== null &&
-            distanceBetweenCoordinates(previous, { lat, lng: lon }) >
-              maxPointDistance
-          ) {
-            if (segment.length > 1) {
-              segments.push({ user, device, coordinates: segment });
-            }
-            segment = [];
-          }
-
-          const coordinate = [lon, lat];
-          segment.push(coordinate);
-          userPoints.push(coordinate);
-
-          if (lat < bounds.minLat) bounds.minLat = lat;
-          if (lat > bounds.maxLat) bounds.maxLat = lat;
-          if (lon < bounds.minLng) bounds.minLng = lon;
-          if (lon > bounds.maxLng) bounds.maxLng = lon;
-
-          if (location.poi) {
-            pois.push({ user, poi: location.poi, coordinate });
-          }
-
-          previous = { lat, lng: lon };
-          count += 1;
-        }
-
-        if (segment.length > 1) {
-          segments.push({ user, device, coordinates: segment });
+          extendDerived(user, device, locations[i]);
         }
       });
     });
 
-    bench.measure("store:mapGeoData", count);
-    return {
-      segments,
-      pointsByUser,
-      pois,
-      bounds: count > 0 ? bounds : null,
-      count,
-    };
-  });
+    bench.measure("store:rebuildDerived", derived.count);
+    publishDerived();
+  }
+
+  // Publish the (empty) initial state so consumers never see `null`.
+  publishDerived();
 
   const selectedDeviceHistory = computed(() => {
     if (!selectedUser.value || !selectedDevice.value) {
@@ -276,6 +240,7 @@ export const useLocationStore = defineStore("location", () => {
    */
   function notifyHistoryChanged(replaced = false) {
     triggerRef(locationHistory);
+    rebuildDerived();
     if (replaced) {
       historyReloadVersion.value += 1;
     }
@@ -395,8 +360,10 @@ export const useLocationStore = defineStore("location", () => {
     const last = current[current.length - 1];
 
     let next;
+    let appended = false;
     if (!last || last.tst < location.tst) {
       next = current.concat(location);
+      appended = true;
     } else {
       const index = findInsertIndex(current, location.tst);
       if (current[index] && current[index].tst === location.tst) {
@@ -409,7 +376,20 @@ export const useLocationStore = defineStore("location", () => {
     }
 
     history[username][device] = next;
-    notifyHistoryChanged();
+    triggerRef(locationHistory);
+
+    if (appended) {
+      // The common case: extend the derivation by one point instead of
+      // recomputing it over the whole history.
+      bench.mark("store:extendDerived");
+      extendDerived(username, device, location);
+      bench.measure("store:extendDerived", 1);
+      publishDerived();
+    } else {
+      // An out-of-order or replacing point invalidates the tail of the
+      // derivation, so fall back to a full rebuild.
+      rebuildDerived();
+    }
   }
 
   async function connectWebsocket() {
@@ -639,9 +619,6 @@ export const useLocationStore = defineStore("location", () => {
     fitViewToggle,
     realTimeUpdatesEnabled,
     playbackPoint,
-    filteredLocationHistory,
-    filteredLocationHistoryLatLngs,
-    filteredLocationHistoryLatLngGroups,
     mapGeoData,
     notifyHistoryChanged,
     appendLocationToHistory,

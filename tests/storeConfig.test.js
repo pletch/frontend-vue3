@@ -107,3 +107,74 @@ describe("mapGeoData configuration handling", () => {
     expect(store.mapGeoData.segments[0].coordinates).toHaveLength(2);
   });
 });
+
+describe("incremental derivation under a filtering configuration", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  /**
+   * Compare segments and counts, which is what the split and filter logic
+   * affects.
+   *
+   * @param {Object} data `mapGeoData` value
+   * @returns {Object} Plain, comparable representation
+   */
+  function snapshot(data) {
+    return {
+      segments: data.segments.map((s) => s.coordinates.map((c) => [...c])),
+      points: [...data.pointsByUser.entries()].map(([u, c]) => [u, c.length]),
+      bounds: data.bounds,
+      count: data.count,
+    };
+  }
+
+  test("splitting incrementally matches splitting in a rebuild", async () => {
+    const store = await storeWithConfig({ map: { maxPointDistance: 1000 } });
+
+    // Three clusters separated by jumps far beyond the threshold.
+    const points = [];
+    [0, 10, 20].forEach((base) => {
+      for (let i = 0; i < 5; i++) {
+        points.push({ lat: base + i * 0.001, lon: 0 });
+      }
+    });
+    points.forEach((p, i) =>
+      store.appendLocationToHistory({
+        username: "alice",
+        device: "phone",
+        tst: 1000 + i * 30,
+        ...p,
+      })
+    );
+
+    const incremental = snapshot(store.mapGeoData);
+    store.notifyHistoryChanged();
+
+    expect(incremental).toEqual(snapshot(store.mapGeoData));
+    expect(incremental.segments).toHaveLength(3);
+    incremental.segments.forEach((s) => expect(s).toHaveLength(5));
+  });
+
+  test("accuracy filtering incrementally matches a rebuild", async () => {
+    const store = await storeWithConfig({ filters: { minAccuracy: 50 } });
+
+    for (let i = 0; i < 30; i++) {
+      store.appendLocationToHistory({
+        username: "alice",
+        device: "phone",
+        tst: 1000 + i * 30,
+        lat: 51 + i * 0.001,
+        lon: -0.1,
+        // Every third point is too inaccurate to keep.
+        acc: i % 3 === 0 ? 400 : 10,
+      });
+    }
+
+    const incremental = snapshot(store.mapGeoData);
+    store.notifyHistoryChanged();
+
+    expect(incremental).toEqual(snapshot(store.mapGeoData));
+    expect(incremental.count).toBe(20);
+  });
+});
