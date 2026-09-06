@@ -39,7 +39,11 @@
     <template v-else>
       <div class="absolute inset-0" ref="mapContainer"></div>
       <div
-        v-if="webglIsSoftware && !softwareWarningDismissed"
+        v-if="
+          webglIsSoftware &&
+          !softwareWarningDismissed &&
+          !locationStore.isLoading
+        "
         :class="softwareWarningClass"
         role="status"
       >

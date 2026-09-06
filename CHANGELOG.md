@@ -51,6 +51,8 @@ Dates are in UTC.
 - Each user now keeps a distinct, stable colour. Colours were previously assigned in the order users happened to be drawn, so they changed between reloads and as users appeared.
 - The date range arrows now step by the whole shown interval rather than half of it, giving contiguous non-overlapping windows for browsing history day by day. Stepping forward stops at the present.
 - The date range is now typeable, so a specific date can be entered directly instead of clicking through the calendar.
+- Long date ranges are now requested in slices (`api.historySlice`) and rendered as each slice arrives, so the map fills in progressively instead of staying empty until the whole range has transferred.
+- The loading indicator is no longer a blocking modal; it is a compact progress pill so the map stays visible while data loads.
 ### Fixed
 - URL parameters were silently discarded on load: the app mounted before the router had resolved its initial navigation, so `route.query` was empty and every shared link fell back to the defaults. Shared links now restore the date range, users, layers and map position.
 - Loading a link to a past date range no longer has its end date dragged to the present by the real-time ticker.

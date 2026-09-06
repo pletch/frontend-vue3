@@ -11,6 +11,13 @@ const DEFAULT_CONFIG = {
   api: {
     baseUrl: `${window.location.protocol}//${window.location.host}`,
     fetchOptions: {},
+    // Request long date ranges in slices so results appear progressively
+    // rather than all at once when the whole body has arrived.
+    historySlice: {
+      enabled: true,
+      days: 7,
+      maxSlices: 32,
+    },
   },
   endDateTime,
   filters: {

@@ -76,5 +76,7 @@
   "{size} received": "{size} received",
   "Select users": "Select users",
   "All users": "All users",
-  "{count} users": "{count} users"
+  "{count} users": "{count} users",
+  "Part {done} of {total}": "Part {done} of {total}",
+  "Loading data...": "Loading data..."
 }

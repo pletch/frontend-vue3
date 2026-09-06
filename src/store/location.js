@@ -12,6 +12,7 @@ import {
   getUserColor,
 } from "@/util";
 import * as bench from "@/bench";
+import { buildDateSlices, mergeHistorySlice } from "@/history";
 
 function formatInitialDate(date) {
   return (date instanceof Date ? date.toISOString() : date).slice(0, 19);
@@ -446,6 +447,26 @@ export const useLocationStore = defineStore("location", () => {
     }
   }
 
+  /**
+   * Append a freshly fetched slice of history.
+   *
+   * Slices arrive oldest first, so their points extend the derivation rather
+   * than invalidating it, keeping the cost proportional to what arrived.
+   *
+   * @param {Object} slice History for the same devices, covering a later range
+   */
+  function appendHistorySlice(slice) {
+    bench.mark("store:appendHistorySlice");
+    const added = mergeHistorySlice(locationHistory.value, slice);
+    added.forEach(({ user, device, location }) =>
+      extendDerived(user, device, location)
+    );
+    triggerRef(locationHistory);
+    publishDerived();
+    bench.measure("store:appendHistorySlice", added.length);
+    return added.length;
+  }
+
   async function connectWebsocket() {
     api.connectWebsocket(async (location) => {
       if (!realTimeUpdatesEnabled.value) return;
@@ -522,15 +543,33 @@ export const useLocationStore = defineStore("location", () => {
     }
     requestAbortController.value = new AbortController();
 
-    loadProgress.value = { received: 0, total: 0, reliable: false };
+    const sliceConfig = config.api.historySlice || {};
+    const slices = sliceConfig.enabled
+      ? buildDateSlices(
+          startDateTime.value,
+          endDateTime.value,
+          sliceConfig.days,
+          sliceConfig.maxSlices
+        )
+      : [{ from: startDateTime.value, to: endDateTime.value }];
+
     let received = 0;
     let total = 0;
     let reliable = true;
+    let completed = 0;
+    loadProgress.value = {
+      received: 0,
+      total: 0,
+      reliable: false,
+      slice: 0,
+      slices: slices.length,
+    };
 
     /**
-     * Aggregate progress across the per-device requests.
+     * Aggregate progress across the requests making up one load.
      *
-     * The total is only meaningful if every request reported a usable one.
+     * The byte total is only meaningful if every request reported a usable
+     * one; the slice count always is.
      *
      * @param {Object} chunk Progress for one chunk
      */
@@ -542,29 +581,70 @@ export const useLocationStore = defineStore("location", () => {
         received,
         total: reliable ? total : 0,
         reliable,
+        slice: completed,
+        slices: slices.length,
       };
     };
 
+    const options = { signal: requestAbortController.value.signal };
+
     try {
-      const history = await bench.timeAsync(
-        "api:getLocationHistory",
-        () =>
-          api.getLocationHistory(
-            targetDevices,
-            startDateTime.value,
-            endDateTime.value,
-            { signal: requestAbortController.value.signal },
-            onProgress
-          ),
-        getLocationHistoryCount
-      );
-      bench.time("store:assignLocationHistory", () => {
-        locationHistory.value = history;
+      if (slices.length === 1) {
+        const history = await bench.timeAsync(
+          "api:getLocationHistory",
+          () =>
+            api.getLocationHistory(
+              targetDevices,
+              slices[0].from,
+              slices[0].to,
+              options,
+              onProgress
+            ),
+          getLocationHistoryCount
+        );
+        bench.time("store:assignLocationHistory", () => {
+          locationHistory.value = history;
+          notifyHistoryChanged(true);
+        });
+      } else {
+        // Start from empty and grow, so the map draws each slice as it lands
+        // instead of staying blank until everything has arrived.
+        locationHistory.value = {};
         notifyHistoryChanged(true);
-      });
+
+        let fitted = false;
+        for (const slice of slices) {
+          const partial = await bench.timeAsync(
+            "api:getLocationHistorySlice",
+            () =>
+              api.getLocationHistory(
+                targetDevices,
+                slice.from,
+                slice.to,
+                options,
+                onProgress
+              ),
+            getLocationHistoryCount
+          );
+          const added = appendHistorySlice(partial);
+          completed += 1;
+
+          // Fit once as soon as there is something to look at, and again at
+          // the end so the view ends up framing the whole range.
+          if ((!fitted && added > 0) || completed === slices.length) {
+            fitted = true;
+            historyReloadVersion.value += 1;
+          }
+          loadProgress.value = {
+            ...loadProgress.value,
+            slice: completed,
+            slices: slices.length,
+          };
+        }
+      }
 
       if (config.showDistanceTravelled) {
-        updateTravelStats(history);
+        updateTravelStats(locationHistory.value);
       }
     } catch (error) {
       if (error.name !== "AbortError") {

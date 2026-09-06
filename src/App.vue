@@ -9,9 +9,9 @@
       <RoutePlayback />
       <ConnectionErrorBanner />
       <UserLegend />
+      <LoadingIndicator />
     </main>
     <InformationModal />
-    <LoadingModal />
   </div>
 </template>
 
@@ -27,7 +27,7 @@ import RoutePlayback from "@/components/RoutePlayback.vue";
 import ConnectionErrorBanner from "@/components/ConnectionErrorBanner.vue";
 import UserLegend from "@/components/UserLegend.vue";
 import InformationModal from "@/components/modals/InformationModal.vue";
-import LoadingModal from "@/components/modals/LoadingModal.vue";
+import LoadingIndicator from "@/components/LoadingIndicator.vue";
 
 const route = useRoute();
 const router = useRouter();

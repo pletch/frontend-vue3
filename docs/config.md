@@ -24,6 +24,7 @@ window.owntracks.config = {};
 
 - `api`
   - [`baseUrl`](#apibaseurl)
+  - [`historySlice`](#apihistoryslice)
   - [`fetchOptions`](#apifetchoptions)
 - [`endDateTime`](#enddatetime)
 - `filters`
@@ -359,6 +360,32 @@ the configured tileserver supports.
 
 - Type: [`Number`]
 - Default: `19`
+
+### `api.historySlice`
+
+How a history request covering a long date range is split into successive
+requests. Each slice is rendered as it arrives, so the track draws
+progressively instead of the map staying empty until the whole range has been
+transferred.
+
+Slices are contiguous and fetched oldest first. A point appearing at both ends
+of adjacent slices is dropped, so an inclusive recorder range does not produce
+duplicates.
+
+Set `enabled` to `false` to issue a single request per device as before.
+
+- Type: [`Object`]
+- Default:
+  ```js
+  {
+    enabled: true,
+    // Slice length in days.
+    days: 7,
+    // Slices are widened rather than exceeding this, so a very long range
+    // cannot turn into hundreds of requests.
+    maxSlices: 32,
+  }
+  ```
 
 ### `map.sampling`
 

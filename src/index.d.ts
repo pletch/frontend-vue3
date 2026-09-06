@@ -3,6 +3,11 @@ interface Config {
     api: {
         baseUrl: string;
         fetchOptions: object;
+        historySlice: {
+          enabled: boolean;
+          days: number;
+          maxSlices: number;
+        };
     };
     endDateTime: Date;
     filters: {
