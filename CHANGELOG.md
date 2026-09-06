@@ -79,6 +79,7 @@ Dates are in UTC.
 ### Changed
 
 - Removed configuration options that stopped doing anything when the map moved from Leaflet to MapLibre: `map.attribution`, `map.controls`, `map.maxZoom`, `map.tileSize`, `map.url`, `map.urlDark` and `map.zoomOffset`. Setting them had no effect; they are now gone from the defaults, the types and the documentation.
+- Removed the per-layer colour options superseded by per-user colouring, and the heatmap options the MapLibre heatmap does not read: `color` and `fillColor` on `map.circle`, `map.circleMarker`, `map.poiMarker` and `map.polyline`, `map.circleMarker.fillOpacity`, and `map.heatmap.blur`, `map.heatmap.gradient` and `map.heatmap.max`. All were documented but inert.
 
 - Converted core components (`AppHeader.vue`, `Map.vue`, `LDeviceLocationPopup.vue`, `LHeatmap.vue`) to native `<script setup>` syntax.
 - Completely rebuilt map rendering logic to be proxy-aware and avoid infinite recursion crashes with Leaflet and Vue 3.

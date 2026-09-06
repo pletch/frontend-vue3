@@ -27,20 +27,12 @@ const DEFAULT_CONFIG: Config = {
   locale: "en-US",
   map: {
     circle: {
-      color: null,
-      fillColor: null,
       fillOpacity: 0.2,
     },
     circleMarker: {
-      color: null,
-      fillColor: "#fff",
-      fillOpacity: 1,
       radius: 4,
     },
     heatmap: {
-      blur: 15,
-      gradient: null,
-      max: 20,
       radius: 25,
     },
     blockSoftwareWebGL: false,
@@ -61,14 +53,10 @@ const DEFAULT_CONFIG: Config = {
     },
     maxPointDistance: null,
     poiMarker: {
-      color: null,
-      fillColor: null,
       fillOpacity: 0.2,
       radius: 12,
     },
     polyline: {
-      color: null,
-      fillColor: "transparent",
       opacity: 0.8,
       weight: 3,
     },

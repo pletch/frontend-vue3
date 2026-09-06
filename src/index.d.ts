@@ -17,20 +17,12 @@ interface Config {
   locale: string;
   map: {
     circle: {
-      color: OptionalColor;
-      fillColor: OptionalColor;
       fillOpacity: number;
     };
     circleMarker: {
-      color: OptionalColor;
-      fillColor: OptionalColor;
-      fillOpacity: number;
       radius: number;
     };
     heatmap: {
-      blur: number;
-      gradient: { number: Color } | null;
-      max: number;
       radius: number;
     };
     blockSoftwareWebGL: boolean;
@@ -51,14 +43,10 @@ interface Config {
     };
     maxPointDistance: number | null;
     poiMarker: {
-      color: OptionalColor;
-      fillColor: OptionalColor;
       fillOpacity: number;
       radius: number;
     };
     polyline: {
-      color: OptionalColor;
-      fillColor: OptionalColor;
       /** Line opacity, 0 to 1 */
       opacity: number;
       /** Line width in pixels */
@@ -275,9 +263,6 @@ interface LogMessageFunction {
 
 /** A CSS color. */
 type Color = string;
-
-/** A CSS color that will use `primaryColor` as fallback. */
-type OptionalColor = Color | null;
 
 /** A user's name. */
 type User = string;

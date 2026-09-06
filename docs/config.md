@@ -35,9 +35,6 @@ window.owntracks.config = {};
   - [`circle`](#mapcircle)
   - [`circleMarker`](#mapcirclemarker)
   - `heatmap`
-    - [`blur`](#mapheatmapblur)
-    - [`gradient`](#mapheatmapgradient)
-    - [`max`](#mapheatmapmax)
     - [`radius`](#mapheatmapradius)
   - `layers`
     - [`heatmap`](#maplayersheatmap)
@@ -186,54 +183,30 @@ use `en-US` for translations.
 
 ### `map.circle`
 
-Location accuracy indicator configuration. `color` and `fillColor` default to
-`primaryColor` if `null`. These properties map directly to MapLibre GL JS paint layout properties for the accuracy layer.
+Appearance of the accuracy circle drawn around each last known location. The
+colour comes from the per-user palette and is not configurable.
 
 - Type: [`Object`]
 - Default:
   ```js
   {
-    color: null,
-    fillColor: null,
-    fillOpacity: 0.2
+    fillOpacity: 0.2,
   }
   ```
 
 ### `map.circleMarker`
 
-Location point marker configuration. `color` defaults to `primaryColor` if `null`. These properties control the styling of the MapLibre GL JS points layer.
+Appearance of the individual history points. The radius is the size at high
+zoom; points shrink and lose their outline as you zoom out so that dense tracks
+stay readable. The colour comes from the per-user palette.
 
 - Type: [`Object`]
 - Default:
   ```js
   {
-    color: null,
-    fillColor: "#fff",
-    fillOpacity: 1,
-    radius: 4
+    radius: 4,
   }
   ```
-
-### `map.heatmap.blur`
-
-Heatmap blur radius.
-
-- Type: [`Number`]
-- Default: `15`
-
-### `map.heatmap.gradient`
-
-Mapping of values between 0 and 1 to different colors. (Currently deprecated due to MapLibre native heatmap engine).
-
-- Type: [`Object`] or `null`
-- Default: `null`
-
-### `map.heatmap.max`
-
-Heatmap max data value.
-
-- Type: [`Number`]
-- Default: `20`
 
 ### `map.heatmap.radius`
 
@@ -388,29 +361,30 @@ Width of the location history line, in pixels.
 
 ### `map.poiMarker`
 
-POI marker configuration. These properties control the styling of the MapLibre GL JS POI layer.
+Appearance of points of interest. The colour comes from the per-user palette.
 
 - Type: [`Object`]
 - Default:
   ```js
   {
-    color: "red",
-    fillColor: "red",
     fillOpacity: 0.2,
-    radius: 12
+    radius: 12,
   }
   ```
 
 ### `map.polyline`
 
-Location point marker configuration. `color` defaults to `primaryColor` if `null`. These properties control the styling of the MapLibre GL JS line layer.
+Appearance of the history line. See
+[`map.polyline.weight`](#mappolylineweight) and
+[`map.polyline.opacity`](#mappolylineopacity). The colour comes from the
+per-user palette.
 
 - Type: [`Object`]
 - Default:
   ```js
   {
-    color: null,
-    fillColor: "transparent"
+    opacity: 0.8,
+    weight: 3,
   }
   ```
 
