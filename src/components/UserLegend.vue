@@ -38,16 +38,31 @@ const entries = computed(() => {
     }
   });
 
+  // A user whose marker the stale filter removed should not be named here
+  // either, even though their history is still drawn.
+  const stale = locationStore.staleFilteredUsers;
+
   return [...visible]
-    .filter(Boolean)
+    .filter((user) => user && !stale.has(user))
     .sort((a, b) => String(a).localeCompare(String(b)))
     .map((user) => ({ user, color: locationStore.userColor(user) }));
 });
 
-const legendClass = [
-  "absolute left-2 bottom-8 z-10 safe-bottom",
-  "flex flex-col gap-1 rounded-md border px-2.5 py-2 text-xs shadow-md",
-  "bg-white/90 border-gray-200 text-gray-800 backdrop-blur-sm",
-  "dark:bg-gray-900/90 dark:border-gray-700 dark:text-gray-100",
-].join(" ");
+// The playback bar spans nearly the full width on phones, so on small screens
+// the legend has to clear it rather than sit underneath. It is also capped and
+// scrollable: a long roster would otherwise run off the bottom of the display.
+const hasPlayback = computed(
+  () => locationStore.selectedDeviceHistory.length > 0
+);
+
+const legendClass = computed(() =>
+  [
+    "absolute left-2 z-10 safe-bottom",
+    "max-h-[40vh] overflow-y-auto overscroll-contain",
+    hasPlayback.value ? "bottom-24 sm:bottom-8" : "bottom-8",
+    "flex flex-col gap-1 rounded-md border px-2.5 py-2 text-xs shadow-md",
+    "bg-white/90 border-gray-200 text-gray-800 backdrop-blur-sm",
+    "dark:bg-gray-900/90 dark:border-gray-700 dark:text-gray-100",
+  ].join(" ")
+);
 </script>

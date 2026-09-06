@@ -454,6 +454,29 @@ describe("multi-user selection", () => {
     ]);
   });
 
+  test("the stale filter excludes users whose every fix is old", () => {
+    const now = 1700000000000;
+    vi.setSystemTime(now);
+    const fresh = now / 1000 - 60;
+    const old = now / 1000 - 5 * 24 * 60 * 60;
+    store.lastLocations = [
+      { username: "alice", device: "phone", tst: fresh, lat: 1, lon: 1 },
+      // Two devices, only one of them recent: alice stays listed.
+      { username: "alice", device: "tablet", tst: old, lat: 1, lon: 1 },
+      { username: "bob", device: "phone", tst: old, lat: 2, lon: 2 },
+      { username: "carol", device: "watch", tst: fresh, lat: 3, lon: 3 },
+    ];
+
+    expect([...store.staleFilteredUsers]).toEqual([]);
+
+    store.layers = { ...store.layers, hideStale: true };
+    expect([...store.staleFilteredUsers]).toEqual(["bob"]);
+
+    // An explicit selection overrides the filter, so nothing is excluded.
+    store.selectedUsers = ["alice", "bob"];
+    expect([...store.staleFilteredUsers]).toEqual([]);
+  });
+
   test("selectedUser is only set when exactly one user is selected", () => {
     expect(store.selectedUser).toBe(null);
 

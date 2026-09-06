@@ -69,6 +69,8 @@ Dates are in UTC.
 - URL parameters were silently discarded on load: the app mounted before the router had resolved its initial navigation, so `route.query` was empty and every shared link fell back to the defaults. Shared links now restore the date range, users, layers and map position.
 - Loading a link to a past date range no longer has its end date dragged to the present by the real-time ticker.
 - Mobile: opening a device popup no longer leaves it clipped behind the navigation panel; the panel now closes when a popup opens or the map is tapped.
+- Mobile: the user legend was drawn behind the playback bar, which spans nearly the full width on phones, so the lower entries were hidden. The legend now sits above the bar when playback is available, and a long roster scrolls within a capped height instead of running off the bottom of the display.
+- The user legend named users whose markers the "hide stale markers" filter had removed. Those users are now left out of the legend as well, unless an explicit user selection is overriding the filter.
 - Mobile: the date range is no longer truncated. It now fits down to 320px-wide screens, verified at 320, 360, 390 and 430px.
 - Requests to an unreachable recorder no longer crash the page. `fetchApi()` swallowed network errors and returned `undefined`, and every caller then dereferenced `response.json()`, producing an unhandled `TypeError` and a blank map. Failures now surface as an `ApiError` and are reported in the UI.
 - Live location updates no longer cost time proportional to the entire loaded history. The history is held in a `shallowRef` with explicit invalidation instead of deep reactivity, cutting a live update at 100k points from ~1015 ms to ~40 ms and a full load from ~1281 ms to ~176 ms.

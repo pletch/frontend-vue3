@@ -160,8 +160,11 @@
  * With viewport-fit=cover the page extends under the notch and home
  * indicator, so anything pinned to an edge needs to be inset explicitly.
  */
+/* Lifts an absolutely positioned element clear of the home indicator without
+   padding its interior: for an abs-positioned box the bottom offset resolves
+   against the margin edge, so this shifts the whole box up. */
 .safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  margin-bottom: env(safe-area-inset-bottom, 0px);
 }
 .safe-inset-bottom {
   bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));

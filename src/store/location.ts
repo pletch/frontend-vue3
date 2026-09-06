@@ -172,6 +172,27 @@ export const useLocationStore = defineStore("location", () => {
     });
   });
 
+  // Usernames whose every last known fix was dropped by the stale filter, so
+  // that views describing what is on the map (the legend) can leave them out
+  // as well. Empty whenever the filter is not doing anything.
+  const staleFilteredUsers = computed(() => {
+    const excluded = new Set<User>();
+    if (!layers.value.hideStale || selectedUsers.value.length > 0) {
+      return excluded;
+    }
+    const shown = new Set(
+      filteredLastLocations.value.map((location) => location.username)
+    );
+    lastLocations.value.forEach((location) => {
+      // A user with several devices stays listed as long as one of them is
+      // still fresh.
+      if (location.username && !shown.has(location.username)) {
+        excluded.add(location.username);
+      }
+    });
+    return excluded;
+  });
+
   // Configuration that shapes the derivation. Read once: the user config is
   // merged at module evaluation time and does not change at runtime.
   const { minAccuracy } = config.filters;
@@ -872,6 +893,7 @@ export const useLocationStore = defineStore("location", () => {
     devices,
     lastLocations,
     filteredLastLocations,
+    staleFilteredUsers,
     locationHistory,
     historyReloadVersion,
     selectedDeviceHistory,
