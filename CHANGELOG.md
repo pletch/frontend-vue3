@@ -58,9 +58,10 @@ Dates are in UTC.
 - Began converting the codebase to TypeScript, starting with the pure-logic modules: `track`, `history`, `simplify` and `sampler`. `allowJs` is on and `checkJs` off, so the remaining JavaScript is unaffected and conversion can continue file by file. Added a `npm run typecheck` script.
 - Corrected the `OTLocation` type declaration, which was missing `motionactivities` and `addr` despite both being used, and marked `_http` and `disptst` required when they are not.
 - Moved `puppeteer` from `dependencies` to `devDependencies`; it is a test-harness dependency and was being installed in production installs.
-
+- Converted the store, API client, `util` and `config` to TypeScript, alongside the pure-logic modules. Components remain JavaScript.
 ### Fixed
-
+- A shared link's map position was ignored. `populateStateFromQuery` ran in the app's `onMounted`, but Vue mounts children before parents, so the map had already been created from the default centre and zoom. It now runs during setup.
+- `populateStateFromQuery` assigned the unparsed latitude string to the map state while parsing only the longitude, and the mirror image for longitude, leaving a string where a number was expected.
 - URL parameters were silently discarded on load: the app mounted before the router had resolved its initial navigation, so `route.query` was empty and every shared link fell back to the defaults. Shared links now restore the date range, users, layers and map position.
 - Loading a link to a past date range no longer has its end date dragged to the present by the real-time ticker.
 - Mobile: opening a device popup no longer leaves it clipped behind the navigation panel; the panel now closes when a popup opens or the map is tapped.
