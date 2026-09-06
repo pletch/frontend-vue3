@@ -103,7 +103,7 @@ describe("appendLocationToHistory", () => {
     store.appendLocationToHistory(location(100));
     expect(store.selectedDeviceHistory).toEqual([]);
 
-    store.selectedUser = "alice";
+    store.selectedUsers = ["alice"];
     store.selectedDevice = "phone";
     expect(store.selectedDeviceHistory).toHaveLength(1);
 
@@ -402,5 +402,163 @@ describe("incremental derivation matches a full rebuild", () => {
     expect(afterReplace).toEqual(snapshot(store.mapGeoData));
     expect(afterReplace.count).toBe(2);
     expect(afterReplace.bounds.maxLat).toBe(9);
+  });
+});
+
+describe("multi-user selection", () => {
+  let store;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    setActivePinia(createPinia());
+    store = useLocationStore();
+    store.locationHistory = {};
+    store.users = ["alice", "bob", "carol"];
+    store.devices = {
+      alice: ["phone"],
+      bob: ["phone", "tablet"],
+      carol: ["watch"],
+    };
+    store.lastLocations = [
+      { username: "alice", device: "phone", tst: 1, lat: 1, lon: 1 },
+      { username: "bob", device: "phone", tst: 2, lat: 2, lon: 2 },
+      { username: "carol", device: "watch", tst: 3, lat: 3, lon: 3 },
+    ];
+  });
+
+  test("an empty selection means every user is shown", () => {
+    expect(store.selectedUsers).toEqual([]);
+    expect(store.isUserSelected("alice")).toBe(true);
+    expect(store.filteredLastLocations).toHaveLength(3);
+  });
+
+  test("selecting a subset narrows the last locations", () => {
+    store.selectedUsers = ["alice", "carol"];
+
+    expect(store.isUserSelected("bob")).toBe(false);
+    expect(store.filteredLastLocations.map((l) => l.username)).toEqual([
+      "alice",
+      "carol",
+    ]);
+  });
+
+  test("selectedUser is only set when exactly one user is selected", () => {
+    expect(store.selectedUser).toBe(null);
+
+    store.selectedUsers = ["bob"];
+    expect(store.selectedUser).toBe("bob");
+
+    store.selectedUsers = ["bob", "carol"];
+    expect(store.selectedUser).toBe(null);
+  });
+
+  test("toggling adds and removes without disturbing the rest", async () => {
+    await store.setSelectedUsers(["alice", "bob"]);
+
+    await store.toggleSelectedUser("carol", true);
+    expect([...store.selectedUsers].sort()).toEqual(["alice", "bob", "carol"]);
+
+    await store.toggleSelectedUser("alice", false);
+    expect([...store.selectedUsers].sort()).toEqual(["bob", "carol"]);
+  });
+
+  test("toggling a user off twice is harmless", async () => {
+    await store.setSelectedUsers(["alice"]);
+    await store.toggleSelectedUser("alice", false);
+    await store.toggleSelectedUser("alice", false);
+    expect(store.selectedUsers).toEqual([]);
+  });
+
+  test("duplicates are collapsed", async () => {
+    await store.setSelectedUsers(["alice", "alice", "bob"]);
+    expect(store.selectedUsers).toEqual(["alice", "bob"]);
+  });
+
+  test("changing the user selection clears the device", async () => {
+    await store.setSelectedUsers(["bob"]);
+    store.selectedDevice = "tablet";
+
+    await store.setSelectedUsers(["bob", "carol"]);
+    expect(store.selectedDevice).toBe(null);
+  });
+
+  test("keeps the device when the same single user is reselected", async () => {
+    await store.setSelectedUsers(["bob"]);
+    store.selectedDevice = "tablet";
+
+    await store.setSelectedUsers(["bob"]);
+    expect(store.selectedDevice).toBe("tablet");
+  });
+
+  test("setSelectedUser(null) shows everyone", async () => {
+    await store.setSelectedUsers(["alice"]);
+    await store.setSelectedUser(null);
+    expect(store.selectedUsers).toEqual([]);
+  });
+
+  test("reads a multi-user selection from the URL", () => {
+    store.populateStateFromQuery({ users: "alice,carol" });
+    expect(store.selectedUsers).toEqual(["alice", "carol"]);
+  });
+
+  test("still reads the older single-user URL parameter", () => {
+    store.populateStateFromQuery({ user: "bob" });
+    expect(store.selectedUsers).toEqual(["bob"]);
+  });
+
+  test("gives each user a distinct, order-independent colour", () => {
+    const colors = store.users.map((user) => store.userColor(user));
+    expect(new Set(colors).size).toBe(colors.length);
+
+    // The colour must not depend on the order users arrive in.
+    const before = store.userColor("carol");
+    store.users = ["carol", "bob", "alice"];
+    expect(store.userColor("carol")).toBe(before);
+  });
+});
+
+describe("populateStateFromQuery", () => {
+  let store;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    setActivePinia(createPinia());
+    store = useLocationStore();
+  });
+
+  test("applies a date range from the URL", () => {
+    store.populateStateFromQuery({
+      start: "2020-01-01T00:00:00",
+      end: "2020-01-08T00:00:00",
+    });
+
+    expect(store.startDateTime).toBe("2020-01-01T00:00:00");
+    expect(store.endDateTime).toBe("2020-01-08T00:00:00");
+  });
+
+  test("pauses real-time updates for a range that has already ended", () => {
+    expect(store.realTimeUpdatesEnabled).toBe(true);
+
+    store.populateStateFromQuery({
+      start: "2020-01-01T00:00:00",
+      end: "2020-01-08T00:00:00",
+    });
+
+    // Otherwise the ticker would drag the end date to the present, quietly
+    // widening a range that was shared as a fixed window.
+    expect(store.realTimeUpdatesEnabled).toBe(false);
+  });
+
+  test("leaves real-time updates on for a range ending in the future", () => {
+    const future = new Date(Date.now() + 86400000).toISOString().slice(0, 19);
+    store.populateStateFromQuery({ start: "2020-01-01T00:00:00", end: future });
+
+    expect(store.realTimeUpdatesEnabled).toBe(true);
+  });
+
+  test("ignores an invalid date range", () => {
+    const before = store.startDateTime;
+    store.populateStateFromQuery({ start: "not-a-date" });
+    expect(store.startDateTime).toBe(before);
   });
 });

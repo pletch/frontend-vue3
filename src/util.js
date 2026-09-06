@@ -212,16 +212,63 @@ const USER_COLORS = [
   "#607d8b", // Blue Grey
 ];
 
-const assignedColors = {};
-let colorIndex = 0;
-
+/**
+ * Pick a stable display colour for a user.
+ *
+ * The colour is derived from the username rather than assigned in the order
+ * users happen to be encountered, so a given user keeps the same colour across
+ * reloads, between the map and the legend, and regardless of who else is
+ * currently visible.
+ *
+ * @param {User} user Username
+ * @returns {Color} Colour for that user
+ */
 export function getUserColor(user) {
-  if (!user) return USER_COLORS[0];
-  if (!assignedColors[user]) {
-    assignedColors[user] = USER_COLORS[colorIndex % USER_COLORS.length];
-    colorIndex++;
+  if (!user) {
+    return USER_COLORS[0];
   }
-  return assignedColors[user];
+
+  // FNV-1a, which spreads similar names (phone1, phone2) across the palette.
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < user.length; i++) {
+    hash ^= user.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+
+  return USER_COLORS[(hash >>> 0) % USER_COLORS.length];
+}
+
+/**
+ * Assign a distinct colour to each known user.
+ *
+ * Hashing alone collides too readily to be useful here: with eight colours and
+ * five users there is a better-than-even chance that two share one. Assigning
+ * by position in the sorted roster guarantees distinct colours while there are
+ * no more users than colours, and is stable for a stable roster. Beyond the
+ * palette size it wraps, and the per-user hash is used as the fallback
+ * whenever the roster is not known.
+ *
+ * @param {User[]} users Known usernames
+ * @returns {Map<User, Color>} Colour for each user
+ */
+export function buildUserColorMap(users) {
+  const colors = new Map();
+  [...users]
+    .filter(Boolean)
+    .sort((a, b) => String(a).localeCompare(String(b)))
+    .forEach((user, index) => {
+      colors.set(user, USER_COLORS[index % USER_COLORS.length]);
+    });
+  return colors;
+}
+
+/**
+ * The palette used for per-user colours.
+ *
+ * @returns {Color[]} Available colours
+ */
+export function getUserColorPalette() {
+  return [...USER_COLORS];
 }
 
 // Byte-size units, largest first.

@@ -76,11 +76,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useLocationStore } from "@/store/location";
 import config from "@/config";
 import { useDark } from "@vueuse/core";
-import {
-  getUserColor,
-  humanReadableSpeed,
-  humanReadableAltitude,
-} from "@/util";
+import { humanReadableSpeed, humanReadableAltitude } from "@/util";
 import * as bench from "@/bench";
 import { toleranceForZoom } from "@/simplify";
 import { createSampler } from "@/sampler";
@@ -252,7 +248,7 @@ const renderMarkers = () => {
     const key = `marker-${location.username}-${location.device}`;
     currentKeys.add(key);
 
-    const color = getUserColor(location.username);
+    const color = locationStore.userColor(location.username);
     const initials =
       location.tid || location.username.substring(0, 2).toUpperCase();
     const activity = getActivityIconDetails(location);
@@ -435,7 +431,7 @@ const getLinesGeoJSON = () => {
     .segments.filter((segment) => segment.coordinates.length > 1)
     .map((segment) => ({
       type: "Feature",
-      properties: { color: getUserColor(segment.user) },
+      properties: { color: locationStore.userColor(segment.user) },
       geometry: { type: "LineString", coordinates: segment.coordinates },
     }));
   bench.measure("geojson:lines", features.length);
@@ -458,7 +454,7 @@ const getUserPointsGeoJSON = () => {
     count += coordinates.length;
     features.push({
       type: "Feature",
-      properties: { color: getUserColor(user) },
+      properties: { color: locationStore.userColor(user) },
       geometry: { type: "MultiPoint", coordinates },
     });
   });
@@ -470,7 +466,7 @@ const getPoiGeoJSON = () => {
   bench.mark("geojson:poi");
   const features = locationStore.mapGeoData.pois.map((poi) => ({
     type: "Feature",
-    properties: { poi: poi.poi, color: getUserColor(poi.user) },
+    properties: { poi: poi.poi, color: locationStore.userColor(poi.user) },
     geometry: { type: "Point", coordinates: poi.coordinate },
   }));
   bench.measure("geojson:poi", features.length);
@@ -500,7 +496,7 @@ const getAccuracyCirclesGeoJSON = () => {
     .filter((l) => l.acc)
     .map((l) => ({
       type: "Feature",
-      properties: { color: getUserColor(l.username) },
+      properties: { color: locationStore.userColor(l.username) },
       geometry: createGeoJSONCircle([l.lon, l.lat], l.acc),
     }));
   bench.measure("geojson:accuracyCircles", features.length);

@@ -46,7 +46,14 @@ Dates are in UTC.
 - Mobile: added safe-area handling (`viewport-fit=cover` plus insets) so the playback bar and map attribution clear the home indicator on notched phones.
 - Mobile: the route playback bar spans the available width and sits above the map attribution instead of colliding with it.
 - The loading dialog now shows a byte-level progress bar for the history request instead of an unchanging spinner, falling back to the amount received when the recorder does not provide a usable `Content-Length`.
+- Multiple users can now be shown at once. The user dropdown is a multi-select with a colour dot per user, and the selection is shared in the URL as `users=alice,bob` (the older `user=` parameter is still read).
+- Added a colour legend on the map when more than one user is visible.
+- Each user now keeps a distinct, stable colour. Colours were previously assigned in the order users happened to be drawn, so they changed between reloads and as users appeared.
+- The date range arrows now step by the whole shown interval rather than half of it, giving contiguous non-overlapping windows for browsing history day by day. Stepping forward stops at the present.
+- The date range is now typeable, so a specific date can be entered directly instead of clicking through the calendar.
 ### Fixed
+- URL parameters were silently discarded on load: the app mounted before the router had resolved its initial navigation, so `route.query` was empty and every shared link fell back to the defaults. Shared links now restore the date range, users, layers and map position.
+- Loading a link to a past date range no longer has its end date dragged to the present by the real-time ticker.
 - Mobile: opening a device popup no longer leaves it clipped behind the navigation panel; the panel now closes when a popup opens or the map is tapped.
 - Mobile: the date range is no longer truncated. It now fits down to 320px-wide screens, verified at 320, 360, 390 and 430px.
 - Requests to an unreachable recorder no longer crash the page. `fetchApi()` swallowed network errors and returned `undefined`, and every caller then dereferenced `response.json()`, producing an unhandled `TypeError` and a blank map. Failures now surface as an `ApiError` and are reported in the UI.

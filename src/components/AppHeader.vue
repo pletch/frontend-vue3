@@ -46,7 +46,7 @@
           <label
             v-for="option in layerSettingsOptions"
             :key="option.layer"
-            class="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer transition-colors whitespace-nowrap text-sm text-gray-800"
+            :class="userOptionClass"
           >
             <input
               type="checkbox"
@@ -94,7 +94,7 @@
           v-model:value="dateTimeRange"
           type="datetime"
           :format="$t('date_time_format')"
-          :editable="false"
+          :editable="true"
           :clearable="false"
           confirm
           :show-second="false"
@@ -120,9 +120,11 @@
           :class="[
             'touch-target hover:bg-white/20 rounded-full transition-colors',
             'focus:outline-none focus-visible:ring-2 focus-visible:ring-white',
+            'disabled:opacity-40 disabled:cursor-not-allowed',
             isSmallScreen ? 'p-0' : 'p-1',
           ]"
           type="button"
+          :disabled="!canShiftForward"
           :title="$t('Shift forward')"
           @click="shiftDateRange(1)"
         >
@@ -154,16 +156,37 @@
       </div>
       <div class="flex items-center space-x-2 px-2">
         <UserIcon class="w-5 h-5" aria-hidden="true" role="img" />
-        <select
-          v-model="selectedUser"
-          class="form-select"
-          :title="$t('Select user')"
-        >
-          <option :value="null">{{ $t("Show all") }}</option>
-          <option v-for="user in locationStore.users" :key="user" :value="user">
+        <DropdownButton :label="userSelectionLabel" :title="$t('Select users')">
+          <label :class="[userOptionClass, 'border-b border-separator']">
+            <input
+              type="checkbox"
+              class="mr-3 cursor-pointer accent-primary"
+              :checked="locationStore.selectedUsers.length === 0"
+              @change="locationStore.setSelectedUsers([])"
+            />
+            {{ $t("Show all") }}
+          </label>
+          <label
+            v-for="user in locationStore.users"
+            :key="user"
+            class="flex items-center px-4 py-2 hover:bg-gray-50 cursor-pointer transition-colors whitespace-nowrap text-sm text-gray-800"
+          >
+            <input
+              type="checkbox"
+              class="mr-3 cursor-pointer accent-primary"
+              :checked="locationStore.selectedUsers.includes(user)"
+              @change="
+                locationStore.toggleSelectedUser(user, $event.target.checked)
+              "
+            />
+            <span
+              class="mr-2 inline-block w-3 h-3 rounded-full shrink-0"
+              :style="{ backgroundColor: locationStore.userColor(user) }"
+              aria-hidden="true"
+            ></span>
             {{ user }}
-          </option>
-        </select>
+          </label>
+        </DropdownButton>
       </div>
       <div
         v-if="locationStore.selectedUser"
@@ -438,6 +461,22 @@ const shortcuts = computed(() => [
 
 const isSmallScreen = computed(() => width.value < 1300);
 
+const userOptionClass = [
+  "flex items-center px-4 py-2 cursor-pointer transition-colors",
+  "hover:bg-gray-50 whitespace-nowrap text-sm text-gray-800",
+].join(" ");
+
+const userSelectionLabel = computed(() => {
+  const selected = locationStore.selectedUsers;
+  if (selected.length === 0) {
+    return t("All users");
+  }
+  if (selected.length === 1) {
+    return selected[0];
+  }
+  return t("{count} users", { count: selected.length });
+});
+
 const selectedUser = computed({
   get: () => locationStore.selectedUser,
   set: (val) => locationStore.setSelectedUser(val),
@@ -467,11 +506,27 @@ const dateTimeRange = computed({
   },
 });
 
+/**
+ * Step the shown range backwards or forwards by its own length.
+ *
+ * Stepping by the whole interval gives contiguous, non-overlapping windows, so
+ * repeatedly pressing the arrow walks through history a day (or week, or
+ * month) at a time without revisiting what was just shown.
+ *
+ * @param {Number} direction -1 for backwards, 1 for forwards
+ */
+// Stepping forward past the present would only ever show an empty window.
+const canShiftForward = computed(() =>
+  moment.utc(locationStore.endDateTime).isBefore(moment.utc())
+);
+
 const shiftDateRange = (direction) => {
+  if (direction > 0 && !canShiftForward.value) {
+    return;
+  }
   const start = moment.utc(locationStore.startDateTime);
   const end = moment.utc(locationStore.endDateTime);
-  const diffMs = end.diff(start);
-  const shiftMs = Math.floor((diffMs / 2) * direction);
+  const shiftMs = end.diff(start) * direction;
 
   const newStart = start.clone().add(shiftMs, "milliseconds");
   const newEnd = end.clone().add(shiftMs, "milliseconds");

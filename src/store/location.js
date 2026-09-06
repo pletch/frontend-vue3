@@ -8,6 +8,8 @@ import {
   distanceBetweenCoordinates,
   isIsoDateTime,
   getLocationHistoryCount,
+  buildUserColorMap,
+  getUserColor,
 } from "@/util";
 import * as bench from "@/bench";
 
@@ -40,10 +42,32 @@ export const useLocationStore = defineStore("location", () => {
   // Bumped only when the history is replaced wholesale, so consumers can
   // distinguish "a new data set" from "one more point arrived".
   const historyReloadVersion = ref(0);
-  const selectedUser = ref(config.selectedUser);
+  // An empty selection means "all users". Device selection only applies when
+  // exactly one user is selected, since devices are scoped to a user.
+  const selectedUsers = ref(
+    config.selectedUser !== null ? [config.selectedUser] : []
+  );
   const selectedDevice = ref(
     config.selectedUser !== null ? config.selectedDevice : null
   );
+
+  // Retained so that everything keyed on a single selected user keeps working;
+  // it is only meaningful when exactly one user is selected.
+  const selectedUser = computed(() =>
+    selectedUsers.value.length === 1 ? selectedUsers.value[0] : null
+  );
+
+  /**
+   * Whether a user is currently shown.
+   *
+   * @param {User} user Username
+   * @returns {Boolean} True if shown
+   */
+  function isUserSelected(user) {
+    return (
+      selectedUsers.value.length === 0 || selectedUsers.value.includes(user)
+    );
+  }
   const units = useLocalStorage("owntracks-units", config.units);
   const layers = useLocalStorage("owntracks-layers", {
     ...config.map.layers,
@@ -75,13 +99,17 @@ export const useLocationStore = defineStore("location", () => {
 
   // Getters
   const filteredLastLocations = computed(() => {
-    // If the stale filter is disabled, or a specific user is selected,
-    // show everything.
-    if (!layers.value.hideStale || selectedUser.value)
-      return lastLocations.value;
+    const locations = lastLocations.value.filter((location) =>
+      isUserSelected(location.username)
+    );
+    // If the stale filter is disabled, or users are explicitly selected,
+    // show everything that is selected.
+    if (!layers.value.hideStale || selectedUsers.value.length > 0) {
+      return locations;
+    }
     const now = Date.now();
     const twoDaysInMs = 2 * 24 * 60 * 60 * 1000;
-    return lastLocations.value.filter((location) => {
+    return locations.filter((location) => {
       if (!location.tst) return true;
       return now - location.tst * 1000 <= twoDaysInMs;
     });
@@ -227,6 +255,16 @@ export const useLocationStore = defineStore("location", () => {
   // Publish the (empty) initial state so consumers never see `null`.
   publishDerived();
 
+  /**
+   * Distinct colour per known user, so the map, markers and legend agree.
+   *
+   * @returns {Function} Lookup returning the colour for a username
+   */
+  const userColor = computed(() => {
+    const colors = buildUserColorMap(users.value);
+    return (user) => colors.get(user) || getUserColor(user);
+  });
+
   const selectedDeviceHistory = computed(() => {
     if (!selectedUser.value || !selectedDevice.value) {
       return [];
@@ -270,8 +308,11 @@ export const useLocationStore = defineStore("location", () => {
     if (query.end && isIsoDateTime(query.end)) {
       endDateTime.value = query.end;
     }
-    if (query.user) {
-      selectedUser.value = query.user;
+    if (query.users) {
+      selectedUsers.value = query.users.split(",").filter(Boolean);
+    } else if (query.user) {
+      // The single-user parameter predates multi-select; keep reading it.
+      selectedUsers.value = [query.user];
     }
     if (query.device) {
       selectedDevice.value = query.device;
@@ -281,6 +322,13 @@ export const useLocationStore = defineStore("location", () => {
       Object.keys(layers.value).forEach((layer) => {
         layers.value[layer] = activeLayers.includes(layer);
       });
+    }
+
+    // A shared link to a past window should stay on that window. Leaving
+    // real-time updates on would let the ticker drag the end date to the
+    // present and silently widen the range.
+    if (new Date(`${endDateTime.value}Z`) < new Date()) {
+      realTimeUpdatesEnabled.value = false;
     }
   }
 
@@ -438,9 +486,12 @@ export const useLocationStore = defineStore("location", () => {
   }
 
   async function getLastLocations() {
+    // The API takes at most one user, so a multi-user selection is fetched in
+    // full and narrowed here.
+    const single = selectedUsers.value.length === 1;
     let locations = await api.getLastLocations(
-      selectedUser.value,
-      selectedDevice.value
+      single ? selectedUsers.value[0] : null,
+      single ? selectedDevice.value : null
     );
     if (config.ignorePingLocation) {
       locations = locations.filter(
@@ -453,14 +504,15 @@ export const useLocationStore = defineStore("location", () => {
   async function getLocationHistory() {
     isLoading.value = true;
     let targetDevices;
-    if (selectedUser.value) {
-      if (selectedDevice.value) {
-        targetDevices = { [selectedUser.value]: [selectedDevice.value] };
-      } else {
-        targetDevices = {
-          [selectedUser.value]: devices.value[selectedUser.value],
-        };
-      }
+    if (selectedUsers.value.length === 1 && selectedDevice.value) {
+      targetDevices = { [selectedUsers.value[0]]: [selectedDevice.value] };
+    } else if (selectedUsers.value.length > 0) {
+      targetDevices = {};
+      selectedUsers.value.forEach((user) => {
+        if (devices.value[user]) {
+          targetDevices[user] = devices.value[user];
+        }
+      });
     } else {
       targetDevices = devices.value;
     }
@@ -585,10 +637,37 @@ export const useLocationStore = defineStore("location", () => {
     recorderVersion.value = await api.getVersion();
   }
 
-  async function setSelectedUser(user) {
-    selectedDevice.value = null;
-    selectedUser.value = user;
+  /**
+   * Replace the set of shown users.
+   *
+   * @param {User[]} value Usernames, empty for all
+   */
+  async function setSelectedUsers(value) {
+    const next = [...new Set(value)];
+    // A device belongs to one user, so any other selection clears it.
+    if (next.length !== 1 || next[0] !== selectedUsers.value[0]) {
+      selectedDevice.value = null;
+    }
+    selectedUsers.value = next;
     await reloadData();
+  }
+
+  /**
+   * Show or hide a single user without disturbing the rest of the selection.
+   *
+   * @param {User} user Username
+   * @param {Boolean} selected Whether the user should be shown
+   */
+  async function toggleSelectedUser(user, selected) {
+    const next = selectedUsers.value.filter((u) => u !== user);
+    if (selected) {
+      next.push(user);
+    }
+    await setSelectedUsers(next);
+  }
+
+  async function setSelectedUser(user) {
+    await setSelectedUsers(user === null ? [] : [user]);
   }
 
   async function setSelectedDevice(device) {
@@ -637,7 +716,10 @@ export const useLocationStore = defineStore("location", () => {
     locationHistory,
     historyReloadVersion,
     selectedDeviceHistory,
+    userColor,
     selectedUser,
+    selectedUsers,
+    isUserSelected,
     selectedDevice,
     units,
     layers,
@@ -667,6 +749,8 @@ export const useLocationStore = defineStore("location", () => {
     triggerFitView,
     getRecorderVersion,
     setSelectedUser,
+    setSelectedUsers,
+    toggleSelectedUser,
     setSelectedDevice,
     setStartDateTime,
     setEndDateTime,

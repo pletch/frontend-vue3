@@ -58,5 +58,8 @@
   "Play": "Play",
   "Pause": "Pause",
   "Playback position": "Playback position",
-  "{size} received": "{size} received"
+  "{size} received": "{size} received",
+  "Select users": "Select users",
+  "All users": "All users",
+  "{count} users": "{count} users"
 }

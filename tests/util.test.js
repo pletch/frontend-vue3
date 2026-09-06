@@ -2,13 +2,17 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 
 import config from "@/config";
 import {
-  getApiUrl,
-  isIsoDateTime,
+  buildUserColorMap,
   degreesToRadians,
   distanceBetweenCoordinates,
+  getApiUrl,
+  getUserColor,
+  getUserColorPalette,
   humanReadableAltitude,
+  humanReadableBytes,
   humanReadableDistance,
   humanReadableSpeed,
+  isIsoDateTime,
 } from "@/util";
 
 describe("getApiUrl", () => {
@@ -212,5 +216,74 @@ describe("humanReadableAltitude", () => {
     expect(humanReadableAltitude(100)).toBe("328 ft");
     // 8848 m ≈ 29029 ft (Everest)
     expect(humanReadableAltitude(8848)).toBe("29,029 ft");
+  });
+});
+
+describe("buildUserColorMap", () => {
+  test("gives every user a distinct colour up to the palette size", () => {
+    const palette = getUserColorPalette();
+    const users = palette.map((_, i) => `user${i}`);
+    const colors = buildUserColorMap(users);
+
+    expect(colors.size).toBe(users.length);
+    expect(new Set(colors.values()).size).toBe(palette.length);
+  });
+
+  test("is independent of the order users are given in", () => {
+    const forwards = buildUserColorMap(["alice", "bob", "carol"]);
+    const backwards = buildUserColorMap(["carol", "bob", "alice"]);
+
+    ["alice", "bob", "carol"].forEach((user) => {
+      expect(forwards.get(user)).toBe(backwards.get(user));
+    });
+  });
+
+  test("wraps around beyond the palette size", () => {
+    const palette = getUserColorPalette();
+    const users = [...Array(palette.length + 3)].map((_, i) => `u${i}`);
+    const colors = buildUserColorMap(users);
+
+    expect(colors.size).toBe(users.length);
+    expect(new Set(colors.values()).size).toBe(palette.length);
+  });
+
+  test("ignores empty entries", () => {
+    expect(buildUserColorMap(["alice", null, "", undefined]).size).toBe(1);
+  });
+
+  test("handles an empty roster", () => {
+    expect(buildUserColorMap([]).size).toBe(0);
+  });
+});
+
+describe("getUserColor", () => {
+  test("is stable for the same name", () => {
+    expect(getUserColor("alice")).toBe(getUserColor("alice"));
+  });
+
+  test("returns a palette colour", () => {
+    expect(getUserColorPalette()).toContain(getUserColor("alice"));
+  });
+
+  test("falls back to a colour for a missing user", () => {
+    expect(getUserColorPalette()).toContain(getUserColor(null));
+  });
+});
+
+describe("humanReadableBytes", () => {
+  test("formats zero and negatives", () => {
+    expect(humanReadableBytes(0)).toBe("0 B");
+    expect(humanReadableBytes(-1)).toBe("0 B");
+  });
+
+  test("formats bytes, kB, MB and GB", () => {
+    expect(humanReadableBytes(512)).toBe("512 B");
+    expect(humanReadableBytes(2048)).toBe("2.0 kB");
+    expect(humanReadableBytes(5 * 1024 ** 2)).toBe("5.0 MB");
+    expect(humanReadableBytes(3 * 1024 ** 3)).toBe("3.0 GB");
+  });
+
+  test("drops the decimal for larger values", () => {
+    expect(humanReadableBytes(45 * 1024 ** 2)).toBe("45 MB");
   });
 });

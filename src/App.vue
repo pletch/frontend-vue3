@@ -8,6 +8,7 @@
       <router-view />
       <RoutePlayback />
       <ConnectionErrorBanner />
+      <UserLegend />
     </main>
     <InformationModal />
     <LoadingModal />
@@ -24,6 +25,7 @@ import { log } from "@/logging";
 import AppHeader from "@/components/AppHeader.vue";
 import RoutePlayback from "@/components/RoutePlayback.vue";
 import ConnectionErrorBanner from "@/components/ConnectionErrorBanner.vue";
+import UserLegend from "@/components/UserLegend.vue";
 import InformationModal from "@/components/modals/InformationModal.vue";
 import LoadingModal from "@/components/modals/LoadingModal.vue";
 
@@ -52,7 +54,7 @@ const updateUrlQuery = () => {
     layers,
     startDateTime: start,
     endDateTime: end,
-    selectedUser: user,
+    selectedUsers: users,
     selectedDevice: device,
   } = locationStore;
   const activeLayers = Object.keys(layers).filter(
@@ -64,19 +66,19 @@ const updateUrlQuery = () => {
     zoom: map.zoom,
     start,
     end,
-    ...(user !== null && { user }),
-    ...(user !== null && device !== null && { device }),
+    ...(users.length > 0 && { users: users.join(",") }),
+    ...(users.length === 1 && device !== null && { device }),
     ...(activeLayers.length > 0 && { layers: activeLayers.join(",") }),
   };
   log("STATE", "Updating URL query from state");
-  log("STATE", JSON.parse(JSON.stringify({ map, start, end, user, device })));
+  log("STATE", JSON.parse(JSON.stringify({ map, start, end, users, device })));
   router.replace({ query }).catch(() => {}); // https://github.com/vuejs/vue-router/issues/2872#issuecomment-519073998
 };
 
 // Update URL query params when relevant values change
 watch(
   [
-    () => locationStore.selectedUser,
+    () => locationStore.selectedUsers,
     () => locationStore.selectedDevice,
     () => locationStore.startDateTime,
     () => locationStore.endDateTime,

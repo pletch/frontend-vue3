@@ -18,11 +18,16 @@ app.use(i18n);
 
 app.config.globalProperties.$config = config;
 
-app.mount("#app");
+// The router resolves its initial navigation asynchronously. Mounting before
+// that completes leaves `route.query` empty when `App.vue` reads it, so every
+// parameter in a shared URL was silently discarded and replaced by defaults.
+router.isReady().then(() => {
+  app.mount("#app");
 
-// The benchmark runner is only pulled in when explicitly enabled (`?bench` in
-// the URL or `bench: true` in the config), keeping it out of the default
-// bundle.
-if (bench.isEnabled()) {
-  import("@/bench/run").then((run) => run.install());
-}
+  // The benchmark runner is only pulled in when explicitly enabled (`?bench`
+  // in the URL or `bench: true` in the config), keeping it out of the default
+  // bundle.
+  if (bench.isEnabled()) {
+    import("@/bench/run").then((run) => run.install());
+  }
+});
