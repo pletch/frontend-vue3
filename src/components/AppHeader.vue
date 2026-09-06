@@ -321,7 +321,7 @@ const layerSettingsOptions: { layer: LayerName; label: string }[] = [
   { layer: "points", label: "layers.points" },
   { layer: "heatmap", label: "layers.heatmap" },
   { layer: "poi", label: "layers.poi" },
-  { layer: "hideStale", label: "Hide stale markers (> 2 days)" },
+  { layer: "hideStale", label: "Hide stale users (> 2 days)" },
 ];
 
 const showMobileNav = computed({

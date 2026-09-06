@@ -16,7 +16,7 @@ Dates are in UTC.
 - Automatically track and render live route lines efficiently as new points stream via WebSockets without heavy API reloads.
 - Upgraded the pop-up modal to gracefully display current Activity states and Velocity.
 - Parse Battery Status (`bs`) payload to dynamically display a green charging icon when device is plugged in.
-- Implemented an option to hide stale map markers older than 48 hours within "Display settings".
+- Implemented an option in "Display settings" to hide users whose last fix is more than 48 hours old. It hides the user entirely: marker, track, points, POIs and legend entry, and "fit view" ignores their extent.
 - Integrated Photon API to dynamically reverse-geocode and display the closest address in the map popup when a device location lacks a predefined address.
 - Guaranteed that individually selected users bypass the stale marker filter to always display.
 - Enhanced Date Picker with additional shortcuts for "4 hours", "8 hours", "12 hours", and "24 hours".
@@ -70,7 +70,8 @@ Dates are in UTC.
 - Loading a link to a past date range no longer has its end date dragged to the present by the real-time ticker.
 - Mobile: opening a device popup no longer leaves it clipped behind the navigation panel; the panel now closes when a popup opens or the map is tapped.
 - Mobile: the user legend was drawn behind the playback bar, which spans nearly the full width on phones, so the lower entries were hidden. The legend now sits above the bar when playback is available, and a long roster scrolls within a capped height instead of running off the bottom of the display.
-- The user legend named users whose markers the "hide stale markers" filter had removed. Those users are now left out of the legend as well, unless an explicit user selection is overriding the filter.
+- The "hide stale users" filter only removed a user's marker, leaving their track, points and POIs drawn and their name in the legend. It now hides the user's geometry entirely, and "fit view" no longer zooms out to include an extent that is not being drawn.
+- Staleness was measured against the wall clock, so browsing any date range that ended more than two days ago hid every user. It is now measured back from the end of the displayed window, clamped to the present so an end date set in the future cannot loosen the filter instead.
 - Mobile: the date range is no longer truncated. It now fits down to 320px-wide screens, verified at 320, 360, 390 and 430px.
 - Requests to an unreachable recorder no longer crash the page. `fetchApi()` swallowed network errors and returned `undefined`, and every caller then dereferenced `response.json()`, producing an unhandled `TypeError` and a blank map. Failures now surface as an `ApiError` and are reported in the UI.
 - Live location updates no longer cost time proportional to the entire loaded history. The history is held in a `shallowRef` with explicit invalidation instead of deep reactivity, cutting a live update at 100k points from ~1015 ms to ~40 ms and a full load from ~1281 ms to ~176 ms.

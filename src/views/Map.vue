@@ -82,7 +82,7 @@ import config from "@/config";
 import { useDark } from "@vueuse/core";
 import { humanReadableSpeed, humanReadableAltitude } from "@/util";
 import * as bench from "@/bench";
-import type { Coordinate, MapGeoData } from "@/geo";
+import type { Bounds, Coordinate, MapGeoData } from "@/geo";
 import type { Component } from "vue";
 
 /** A glyph and colour describing a device's current motion activity. */
@@ -454,10 +454,26 @@ const sampledData = () => {
   return result;
 };
 
+/**
+ * Whether a user's geometry should be left off the map.
+ *
+ * The stale filter drops a user's marker; their tracks, points and POIs go
+ * with it. Applied here, after sampling, rather than to the sampler's input:
+ * the sampler invalidates its cache on the identity of the arrays it is
+ * given, so filtering upstream would force a full re-sample on every update.
+ *
+ * @param user Username
+ * @returns True if the user's geometry should be hidden
+ */
+const isHiddenUser = (user: User): boolean =>
+  locationStore.staleFilteredUsers.has(user);
+
 const getLinesGeoJSON = (): FeatureCollection => {
   bench.mark("geojson:lines");
   const features = sampledData()
-    .segments.filter((segment) => segment.coordinates.length > 1)
+    .segments.filter(
+      (segment) => segment.coordinates.length > 1 && !isHiddenUser(segment.user)
+    )
     .map((segment): GeoJSON.Feature => ({
       type: "Feature",
       properties: { color: locationStore.userColor(segment.user) },
@@ -479,7 +495,7 @@ const getUserPointsGeoJSON = (): FeatureCollection => {
   const features: GeoJSON.Feature[] = [];
   let count = 0;
   sampledData().pointsByUser.forEach((coordinates, user) => {
-    if (coordinates.length === 0) return;
+    if (coordinates.length === 0 || isHiddenUser(user)) return;
     count += coordinates.length;
     features.push({
       type: "Feature",
@@ -493,13 +509,15 @@ const getUserPointsGeoJSON = (): FeatureCollection => {
 
 const getPoiGeoJSON = (): FeatureCollection => {
   bench.mark("geojson:poi");
-  const features = locationStore.mapGeoData.pois.map(
-    (poi): GeoJSON.Feature => ({
-    type: "Feature",
-    properties: { poi: poi.poi, color: locationStore.userColor(poi.user) },
-      geometry: { type: "Point", coordinates: poi.coordinate },
-    })
-  );
+  const features = locationStore.mapGeoData.pois
+    .filter((poi) => !isHiddenUser(poi.user))
+    .map(
+      (poi): GeoJSON.Feature => ({
+        type: "Feature",
+        properties: { poi: poi.poi, color: locationStore.userColor(poi.user) },
+        geometry: { type: "Point", coordinates: poi.coordinate },
+      })
+    );
   bench.measure("geojson:poi", features.length);
   return { type: "FeatureCollection", features };
 };
@@ -813,6 +831,37 @@ const updateGeoJSON = () => {
   bench.measure("map:updateGeoJSON");
 };
 
+/**
+ * The extent of the geometry currently drawn, ignoring hidden users.
+ *
+ * @returns Bounds, or null when nothing is drawn
+ */
+const drawnBounds = (): Bounds | null => {
+  const data = sampledData();
+  let minLat = Infinity;
+  let minLng = Infinity;
+  let maxLat = -Infinity;
+  let maxLng = -Infinity;
+
+  const extend = (coordinates: Coordinate[]) => {
+    for (const [lng, lat] of coordinates) {
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+    }
+  };
+
+  data.segments.forEach((segment) => {
+    if (!isHiddenUser(segment.user)) extend(segment.coordinates);
+  });
+  data.pointsByUser.forEach((coordinates, user) => {
+    if (!isHiddenUser(user)) extend(coordinates);
+  });
+
+  return minLat === Infinity ? null : { minLat, minLng, maxLat, maxLng };
+};
+
 let isFirstFitView = true;
 
 const fitView = () => {
@@ -820,8 +869,15 @@ const fitView = () => {
   bench.mark("map:fitView");
   const { layers } = locationStore;
   // Bounds come from the single derivation pass, so fitting no longer walks
-  // every point.
-  const { bounds } = locationStore.mapGeoData;
+  // every point. They cover every user though, so when the stale filter is
+  // excluding someone they have to be recomputed from what is actually drawn
+  // - otherwise fitting would zoom out to include a track that is not there.
+  // That walk is confined to the case where the filter is doing something,
+  // and runs over the sampled geometry rather than the raw history.
+  const bounds =
+    locationStore.staleFilteredUsers.size > 0
+      ? drawnBounds()
+      : locationStore.mapGeoData.bounds;
 
   if (
     (layers.line || layers.points || layers.poi || layers.heatmap) &&
@@ -915,6 +971,16 @@ watch(() => locationStore.filteredLastLocations, renderMarkers);
 // identity comparison is sufficient here. Deep watching it would walk the
 // entire data set on every single update.
 watch(() => locationStore.mapGeoData, updateGeoJSON);
+
+// Watched on membership rather than identity: the getter returns a fresh Set
+// on every recompute, and it recomputes whenever a last location arrives, so
+// watching the Set itself would redraw twice for every live point. Toggling
+// the filter also fires the `layers` watcher below, but a user can cross the
+// staleness threshold with no other change.
+watch(
+  () => [...locationStore.staleFilteredUsers].sort().join("\u0000"),
+  updateGeoJSON
+);
 
 // Layer visibility is a small object of booleans, so deep watching is cheap.
 watch(() => locationStore.layers, updateGeoJSON, { deep: true });

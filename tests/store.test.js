@@ -477,6 +477,45 @@ describe("multi-user selection", () => {
     expect([...store.staleFilteredUsers]).toEqual([]);
   });
 
+  test("staleness is measured from the end of the displayed window", () => {
+    const now = new Date("2026-09-06T12:00:00");
+    vi.setSystemTime(now);
+    // Both fixes are months old in wall-clock terms.
+    const inWindow = new Date("2026-06-10T12:00:00").getTime() / 1000;
+    const beforeWindow = new Date("2026-06-05T12:00:00").getTime() / 1000;
+    store.lastLocations = [
+      { username: "alice", device: "phone", tst: inWindow, lat: 1, lon: 1 },
+      { username: "bob", device: "phone", tst: beforeWindow, lat: 2, lon: 2 },
+    ];
+    store.layers = { ...store.layers, hideStale: true };
+
+    // Against the wall clock everything would be stale.
+    store.endDateTime = "2026-06-11T00:00:00";
+    expect([...store.staleFilteredUsers]).toEqual(["bob"]);
+
+    // Moving the window back leaves alice's fix behind it too.
+    store.endDateTime = "2026-06-20T00:00:00";
+    expect([...store.staleFilteredUsers].sort()).toEqual(["alice", "bob"]);
+  });
+
+  test("an end date in the future does not loosen the filter", () => {
+    const now = new Date("2026-09-06T12:00:00");
+    vi.setSystemTime(now);
+    store.lastLocations = [
+      {
+        username: "alice",
+        device: "phone",
+        tst: new Date("2026-09-01T12:00:00").getTime() / 1000,
+        lat: 1,
+        lon: 1,
+      },
+    ];
+    store.layers = { ...store.layers, hideStale: true };
+    store.endDateTime = "2026-12-01T00:00:00";
+
+    expect([...store.staleFilteredUsers]).toEqual(["alice"]);
+  });
+
   test("selectedUser is only set when exactly one user is selected", () => {
     expect(store.selectedUser).toBe(null);
 

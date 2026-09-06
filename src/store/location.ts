@@ -154,6 +154,26 @@ export const useLocationStore = defineStore("location", () => {
     }
   }, 10000); // tick every 10s
 
+  // How far behind the displayed window a user's last fix may fall before the
+  // "hide stale users" filter drops them.
+  const STALE_THRESHOLD_MS = 2 * 24 * 60 * 60 * 1000;
+
+  /**
+   * The instant staleness is measured back from.
+   *
+   * The end of the displayed window, not the wall clock: when looking at a
+   * range that ended last month, every fix in it is old relative to now, so
+   * measuring against `now` would hide everyone. Clamped to the present so
+   * that an end date set in the future does not loosen the filter instead.
+   *
+   * @returns {Number} Reference time in milliseconds
+   */
+  function staleCutoff(): number {
+    const now = Date.now();
+    const end = Date.parse(endDateTime.value);
+    return Number.isNaN(end) ? now : Math.min(end, now);
+  }
+
   // Getters
   const filteredLastLocations = computed(() => {
     const locations = lastLocations.value.filter((location) =>
@@ -164,11 +184,11 @@ export const useLocationStore = defineStore("location", () => {
     if (!layers.value.hideStale || selectedUsers.value.length > 0) {
       return locations;
     }
-    const now = Date.now();
-    const twoDaysInMs = 2 * 24 * 60 * 60 * 1000;
+    const cutoff = staleCutoff() - STALE_THRESHOLD_MS;
     return locations.filter((location) => {
+      // A fix with no timestamp cannot be judged, so it is kept.
       if (!location.tst) return true;
-      return now - location.tst * 1000 <= twoDaysInMs;
+      return location.tst * 1000 >= cutoff;
     });
   });
 
