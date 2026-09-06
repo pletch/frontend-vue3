@@ -7,6 +7,7 @@
     <main class="relative flex-grow h-full w-full bg-gray-200 dark:bg-gray-800">
       <router-view />
       <RoutePlayback />
+      <ConnectionErrorBanner />
     </main>
     <InformationModal />
     <LoadingModal />
@@ -22,6 +23,7 @@ import config from "@/config";
 import { log } from "@/logging";
 import AppHeader from "@/components/AppHeader.vue";
 import RoutePlayback from "@/components/RoutePlayback.vue";
+import ConnectionErrorBanner from "@/components/ConnectionErrorBanner.vue";
 import InformationModal from "@/components/modals/InformationModal.vue";
 import LoadingModal from "@/components/modals/LoadingModal.vue";
 

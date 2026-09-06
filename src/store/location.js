@@ -3,7 +3,7 @@ import { ref, shallowRef, triggerRef, computed, reactive } from "vue";
 import { useLocalStorage } from "@vueuse/core";
 import config from "@/config";
 import * as api from "@/api";
-import { log } from "@/logging";
+import { log, LOG_ERROR } from "@/logging";
 import {
   distanceBetweenCoordinates,
   isIsoDateTime,
@@ -18,6 +18,9 @@ function formatInitialDate(date) {
 export const useLocationStore = defineStore("location", () => {
   // State
   const isLoading = ref(false);
+  // Set when talking to the recorder fails, so the UI can say so rather than
+  // showing an empty map.
+  const loadError = ref(null);
   const isInformationModalVisible = ref(false);
   const frontendVersion = ref(import.meta.env.PACKAGE_VERSION);
   const recorderVersion = ref("");
@@ -211,14 +214,41 @@ export const useLocationStore = defineStore("location", () => {
   }
 
   async function loadData() {
-    await Promise.all([getUsers(), getRecorderVersion()]);
-    await getDevices();
-    await Promise.all([getLastLocations(), getLocationHistory()]);
+    loadError.value = null;
+    try {
+      await Promise.all([getUsers(), getRecorderVersion()]);
+      await getDevices();
+      await Promise.all([getLastLocations(), getLocationHistory()]);
+    } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
+      log("STORE", error, LOG_ERROR);
+      loadError.value = error.message || String(error);
+      isLoading.value = false;
+      return;
+    }
     await connectWebsocket();
   }
 
   async function reloadData() {
-    await Promise.all([getLastLocations(), getLocationHistory()]);
+    loadError.value = null;
+    try {
+      await Promise.all([getLastLocations(), getLocationHistory()]);
+    } catch (error) {
+      if (error.name === "AbortError") {
+        return;
+      }
+      log("STORE", error, LOG_ERROR);
+      loadError.value = error.message || String(error);
+      isLoading.value = false;
+    }
+  }
+
+  /** Clear the current error and try loading everything again. */
+  async function retryLoadData() {
+    loadError.value = null;
+    await loadData();
   }
 
   /**
@@ -376,7 +406,8 @@ export const useLocationStore = defineStore("location", () => {
       }
     } catch (error) {
       if (error.name !== "AbortError") {
-        log("STORE", error, "ERROR");
+        log("STORE", error, LOG_ERROR);
+        loadError.value = error.message || String(error);
       }
     } finally {
       requestAbortController.value = null;
@@ -483,6 +514,7 @@ export const useLocationStore = defineStore("location", () => {
 
   return {
     isLoading,
+    loadError,
     isInformationModalVisible,
     frontendVersion,
     recorderVersion,
@@ -515,6 +547,7 @@ export const useLocationStore = defineStore("location", () => {
     populateStateFromQuery,
     loadData,
     reloadData,
+    retryLoadData,
     connectWebsocket,
     getUsers,
     getDevices,

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import createFetchMock from "vitest-fetch-mock";
 
 import * as api from "@/api";
+import { ApiError } from "@/api";
 
 const fetchMocker = createFetchMock(vi);
 
@@ -225,5 +226,43 @@ describe("API", () => {
     expect(fetchMocker.mock.calls[2][0]).toEqual(
       "http://localhost:3000/api/0/locations?from=1970-01-01T00%3A00%3A00&to=1970-12-31T23%3A59%3A59&user=bar&device=laptop&format=json"
     );
+  });
+
+  test("rejects with an ApiError when the network fails", async () => {
+    fetchMocker.mockReject(new TypeError("Failed to fetch"));
+
+    await expect(api.getUsers()).rejects.toBeInstanceOf(ApiError);
+  });
+
+  test("rejects with an ApiError on a non-OK status", async () => {
+    fetchMocker.mockResponse("Not found", { status: 404 });
+
+    await expect(api.getVersion()).rejects.toMatchObject({
+      name: "ApiError",
+      status: 404,
+    });
+  });
+
+  test("rejects with an ApiError on a malformed body", async () => {
+    fetchMocker.mockResponse("<html>not json</html>");
+
+    await expect(api.getUsers()).rejects.toThrow(/invalid response/);
+  });
+
+  test("re-throws aborts unchanged so callers can recognise them", async () => {
+    const abortError = new Error("The operation was aborted");
+    abortError.name = "AbortError";
+    fetchMocker.mockReject(abortError);
+
+    await expect(api.getUsers()).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  test("never resolves to undefined on failure", async () => {
+    fetchMocker.mockReject(new TypeError("Failed to fetch"));
+
+    // The previous implementation swallowed the error and returned undefined,
+    // so callers crashed on `response.json()` instead of seeing a failure.
+    const result = await api.getLastLocations().catch(() => "rejected");
+    expect(result).toBe("rejected");
   });
 });

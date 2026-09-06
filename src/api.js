@@ -2,8 +2,29 @@ import config from "@/config";
 import { log, LOG_WARNING, LOG_ERROR } from "@/logging";
 import { getApiUrl, getLocationHistoryCount } from "@/util";
 
+/** An API request that could not be completed. */
+export class ApiError extends Error {
+  /**
+   * @param {String} message Human readable description
+   * @param {Object} [details] Additional context
+   * @param {String} [details.url] Requested URL
+   * @param {Number} [details.status] HTTP status, if a response was received
+   * @param {Error} [details.cause] Underlying error, if any
+   */
+  constructor(message, { url, status, cause } = {}) {
+    super(message);
+    this.name = "ApiError";
+    this.url = url;
+    this.status = status;
+    this.cause = cause;
+  }
+}
+
 /**
  * Fetch an API resource.
+ *
+ * Rejects rather than resolving to `undefined` when the request fails, so that
+ * callers cannot accidentally treat a failure as a response.
  *
  * @param {String} path API resource path
  * @param {Object} [params] Query parameters
@@ -18,13 +39,60 @@ function fetchApi(path, params = {}, fetchOptions = {}) {
   return fetch(url.href, {
     ...fetchOptions,
     ...config.api.fetchOptions,
-  }).catch((error) => {
-    if (error.name === "AbortError") {
-      log("HTTP", `GET ${url.href} - Request was aborted`, LOG_WARNING);
-    } else {
-      log("HTTP", error, LOG_ERROR);
-    }
   });
+}
+
+/**
+ * Fetch an API resource and decode it as JSON.
+ *
+ * Network failures, error statuses and malformed payloads are all surfaced as
+ * an `ApiError`. Aborts are re-thrown unchanged so that callers can recognise
+ * them by `error.name`.
+ *
+ * @param {String} path API resource path
+ * @param {Object} [params] Query parameters
+ * @param {Object} [fetchOptions] fetch() options
+ * @returns {Promise<*>} Decoded JSON body
+ */
+async function fetchJson(path, params = {}, fetchOptions = {}) {
+  const url = getApiUrl(path).href;
+  let response;
+
+  try {
+    response = await fetchApi(path, params, fetchOptions);
+  } catch (error) {
+    if (error.name === "AbortError") {
+      log("HTTP", `GET ${url} - Request was aborted`, LOG_WARNING);
+      throw error;
+    }
+    log("HTTP", error, LOG_ERROR);
+    throw new ApiError("Could not reach the OwnTracks recorder.", {
+      url,
+      cause: error,
+    });
+  }
+
+  if (!response.ok) {
+    log("HTTP", `GET ${url} - HTTP ${response.status}`, LOG_ERROR);
+    throw new ApiError(
+      `The OwnTracks recorder returned HTTP ${response.status}.`,
+      { url, status: response.status }
+    );
+  }
+
+  try {
+    return await response.json();
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw error;
+    }
+    log("HTTP", error, LOG_ERROR);
+    throw new ApiError("The OwnTracks recorder returned an invalid response.", {
+      url,
+      status: response.status,
+      cause: error,
+    });
+  }
 }
 
 /**
@@ -33,8 +101,7 @@ function fetchApi(path, params = {}, fetchOptions = {}) {
  * @returns {Promise<String>} Version
  */
 export async function getVersion() {
-  const response = await fetchApi("/api/0/version");
-  const json = await response.json();
+  const json = await fetchJson("/api/0/version");
   const version = json.version;
   log("API", () => `[getVersion] ${version}`);
   return version;
@@ -46,8 +113,7 @@ export async function getVersion() {
  * @returns {Promise<User[]>} Array of usernames
  */
 export async function getUsers() {
-  const response = await fetchApi("/api/0/list");
-  const json = await response.json();
+  const json = await fetchJson("/api/0/list");
   const users = json.results;
   log("API", () => `[getUsers] Fetched ${users.length} users`);
   return users;
@@ -64,8 +130,7 @@ export async function getDevices(users) {
   const devices = {};
   await Promise.all(
     users.map(async (user) => {
-      const response = await fetchApi(`/api/0/list`, { user });
-      const json = await response.json();
+      const json = await fetchJson(`/api/0/list`, { user });
       const userDevices = json.results;
       devices[user] = userDevices;
     })
@@ -97,9 +162,7 @@ export async function getLastLocations(user, device) {
       params["device"] = device;
     }
   }
-  const response = await fetchApi("/api/0/last", params);
-  const json = await response.json();
-  const lastLocations = json;
+  const lastLocations = await fetchJson("/api/0/last", params);
   log(
     "API",
     () => `[getLastLocations] Fetched ${lastLocations.length} last locations`
@@ -124,7 +187,7 @@ export async function getUserDeviceLocationHistory(
   end,
   fetchOptions
 ) {
-  const response = await fetchApi(
+  const json = await fetchJson(
     "/api/0/locations",
     {
       from: start,
@@ -135,7 +198,6 @@ export async function getUserDeviceLocationHistory(
     },
     fetchOptions
   );
-  const json = await response.json();
   // We need to manually sort by timestamp, otherwise the line segments may be
   // drawn in the wrong order. The recorder API simply returns entries in the
   // same order in which they are in each *.rec file.
