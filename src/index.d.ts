@@ -42,6 +42,7 @@ interface Config {
           max: number;
           radius: number;
         };
+        blockSoftwareWebGL: boolean;
         layers: {
           heatmap: boolean;
           last: boolean;
@@ -78,7 +79,9 @@ interface Config {
     selectedDevice: Device | null;
     showDistanceTravelled: boolean;
     startDateTime: Date;
+    units: "metric" | "imperial" | null;
     verbose: boolean;
+    bench: boolean;
 }
 
 /** Pinia state. */

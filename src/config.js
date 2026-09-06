@@ -51,6 +51,7 @@ const DEFAULT_CONFIG = {
       max: 20,
       radius: 25,
     },
+    blockSoftwareWebGL: false,
     layers: {
       heatmap: false,
       last: true,
@@ -90,6 +91,7 @@ const DEFAULT_CONFIG = {
   startDateTime,
   units: null,
   verbose: false,
+  bench: false,
 };
 
 // Use deepmerge to combine the default and user-defined configuration.

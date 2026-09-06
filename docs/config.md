@@ -73,6 +73,7 @@ window.owntracks.config = {};
 - [`startDateTime`](#startdatetime)
 - [`units`](#units)
 - [`verbose`](#verbose)
+- [`bench`](#bench)
 
 ### `api.baseUrl`
 
@@ -583,6 +584,25 @@ Whether to enable verbose mode or not.
 
 - Type: [`Boolean`]
 - Default: `false`
+
+### `bench`
+
+Whether to enable the performance benchmarking harness. When enabled, timings
+are collected for the location data pipeline and a runner is exposed as
+`window.__otBench` for loading synthetic datasets and printing reports. This is
+a development aid and adds a lazily loaded chunk to the page.
+
+Can also be enabled per-page-load by adding `?bench` to the URL.
+
+- Type: [`Boolean`]
+- Default: `false`
+- Example:
+  ```js
+  // In the browser console, with benchmarking enabled:
+  await __otBench.load(100000); // load 100k synthetic points
+  __otBench.report(); // print collected timings
+  await __otBench.tick(50); // simulate 50 live WebSocket updates
+  ```
 
 [`boolean`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Boolean
 [`date`]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date

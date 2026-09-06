@@ -41,5 +41,13 @@
   "30 days": "30 jours",
   "3 months": "3 mois",
   "6 months": "6 mois",
-  "1 year": "1 an"
+  "1 year": "1 an",
+  "WebGL required": "WebGL required",
+  "This browser does not appear to support WebGL.": "This browser does not appear to support WebGL.",
+  "How to fix this": "How to fix this",
+  "Enable hardware acceleration in your browser settings.": "Enable hardware acceleration in your browser settings.",
+  "Ensure your graphics drivers are up to date.": "Ensure your graphics drivers are up to date.",
+  "Try a current version of Chrome, Firefox or Safari.": "Try a current version of Chrome, Firefox or Safari.",
+  "Software rendering: performance will be limited.": "Software rendering: performance will be limited.",
+  "Dismiss": "Dismiss"
 }

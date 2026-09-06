@@ -59,5 +59,13 @@
   "layers.line": "Show location history (line)",
   "layers.points": "Show location history (points)",
   "layers.heatmap": "Show location heatmap",
-  "layers.poi": "Show points of interest"
+  "layers.poi": "Show points of interest",
+  "WebGL required": "WebGL required",
+  "This browser does not appear to support WebGL.": "This browser does not appear to support WebGL.",
+  "How to fix this": "How to fix this",
+  "Enable hardware acceleration in your browser settings.": "Enable hardware acceleration in your browser settings.",
+  "Ensure your graphics drivers are up to date.": "Ensure your graphics drivers are up to date.",
+  "Try a current version of Chrome, Firefox or Safari.": "Try a current version of Chrome, Firefox or Safari.",
+  "Software rendering: performance will be limited.": "Software rendering: performance will be limited.",
+  "Dismiss": "Dismiss"
 }
