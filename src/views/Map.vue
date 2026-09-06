@@ -64,7 +64,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import {
   ref,
   onMounted,
@@ -82,6 +82,17 @@ import config from "@/config";
 import { useDark } from "@vueuse/core";
 import { humanReadableSpeed, humanReadableAltitude } from "@/util";
 import * as bench from "@/bench";
+import type { Coordinate, MapGeoData } from "@/geo";
+import type { Component } from "vue";
+
+/** A glyph and colour describing a device's current motion activity. */
+interface ActivityIcon {
+  icon: Component;
+  colorClass: string;
+}
+
+/** A GeoJSON FeatureCollection, in the shape MapLibre's sources accept. */
+type FeatureCollection = GeoJSON.FeatureCollection;
 import { toleranceForZoom } from "@/simplify";
 import { createSampler } from "@/sampler";
 import LDeviceLocationPopup from "@/components/LDeviceLocationPopup.vue";
@@ -94,8 +105,8 @@ import {
   XIcon,
 } from "lucide-vue-next";
 
-const mapContainer = ref(null);
-let map = null;
+const mapContainer = ref<HTMLElement | null>(null);
+let map: maplibregl.Map | null = null;
 const locationStore = useLocationStore();
 
 const SOFTWARE_RENDERERS = ["swiftshader", "llvmpipe", "software"];
@@ -112,10 +123,9 @@ const SOFTWARE_RENDERERS = ["swiftshader", "llvmpipe", "software"];
 const checkWebGLSupport = () => {
   try {
     const canvas = document.createElement("canvas");
-    const gl =
-      canvas.getContext("webgl2") ||
+    const gl = (canvas.getContext("webgl2") ||
       canvas.getContext("webgl") ||
-      canvas.getContext("experimental-webgl");
+      canvas.getContext("experimental-webgl")) as WebGLRenderingContext | null;
     if (!gl) return { supported: false, software: false };
 
     const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
@@ -157,7 +167,9 @@ const softwareWarningDismissClass = [
   "focus-visible:outline-offset-1",
 ].join(" ");
 const isDark = useDark();
-const instance = getCurrentInstance();
+const instance = getCurrentInstance() as NonNullable<
+  ReturnType<typeof getCurrentInstance>
+>;
 
 const currentStyle = computed(() =>
   isDark.value
@@ -168,7 +180,7 @@ const currentStyle = computed(() =>
 // Map of active markers: key -> { marker, popupApp, elementApp }
 const activeMarkers = new Map();
 
-const getActivityIconDetails = (location) => {
+const getActivityIconDetails = (location: OTLocation): ActivityIcon | null => {
   const acts = location.motionactivities;
   if (!Array.isArray(acts) || acts.length === 0) return null;
   const a = acts.join(" ").toLowerCase();
@@ -191,33 +203,45 @@ const getActivityIconDetails = (location) => {
   return null;
 };
 
-const getPopupProps = (user, device, location) => ({
+/**
+ * Map a location onto the popup's props.
+ *
+ * The popup declares defaults for every optional field, so they are filled in
+ * here rather than passed as `undefined`: a prop with a default resolves to a
+ * required one, and `undefined` would not satisfy it.
+ *
+ * @param user Username
+ * @param device Device name
+ * @param location Location to describe
+ * @returns Props for `LDeviceLocationPopup`
+ */
+const getPopupProps = (user: User, device: Device, location: OTLocation) => ({
   user,
   device,
-  name: location.name,
-  face: location.face,
+  name: location.name ?? "",
+  face: location.face ?? "",
   timestamp: location.tst,
-  createdAt: location.created_at,
-  isorcv: location.isorcv,
-  isoLocal: location.isolocal,
-  timeZone: location.tzname,
+  createdAt: location.created_at ?? "",
+  isorcv: location.isorcv ?? "",
+  isoLocal: location.isolocal ?? "",
+  timeZone: location.tzname ?? "",
   lat: location.lat,
   lon: location.lon,
-  alt: location.alt,
-  battery: location.batt,
-  batteryStatus: location.bs,
-  speed: location.vel,
-  regions: location.inregions,
-  wifi: { ssid: location.SSID, bssid: location.BSSID },
-  address: location.addr,
+  alt: location.alt ?? 0,
+  battery: location.batt ?? 0,
+  batteryStatus: location.bs ?? 0,
+  speed: location.vel ?? 0,
+  regions: location.inregions ?? [],
+  wifi: { ssid: location.SSID ?? "", bssid: location.BSSID ?? "" },
+  address: location.addr ?? "",
   activity: Array.isArray(location.motionactivities)
     ? location.motionactivities.join(", ")
-    : null,
+    : "",
 });
 
 const MarkerComponent = {
   props: ["color", "initials", "activity"],
-  setup(props) {
+  setup(props: { color: string; initials: string; activity: ActivityIcon | null }) {
     return () =>
       h(
         "div",
@@ -243,24 +267,25 @@ const MarkerComponent = {
 };
 
 const renderMarkers = () => {
-  if (!map) return;
+  const currentMap = map;
+  if (!currentMap) return;
   bench.mark("map:renderMarkers");
 
-  const currentKeys = new Set();
+  const currentKeys = new Set<string>();
 
   locationStore.filteredLastLocations.forEach((location) => {
-    const key = `marker-${location.username}-${location.device}`;
+    const user = location.username;
+    const device = location.device;
+    if (!user || !device) {
+      return;
+    }
+    const key = `marker-${user}-${device}`;
     currentKeys.add(key);
 
-    const color = locationStore.userColor(location.username);
-    const initials =
-      location.tid || location.username.substring(0, 2).toUpperCase();
+    const color = locationStore.userColor(user);
+    const initials = location.tid || user.substring(0, 2).toUpperCase();
     const activity = getActivityIconDetails(location);
-    const popupProps = getPopupProps(
-      location.username,
-      location.device,
-      location
-    );
+    const popupProps = getPopupProps(user, device, location);
 
     if (activeMarkers.has(key)) {
       // Update existing marker position and contents
@@ -300,7 +325,7 @@ const renderMarkers = () => {
       const marker = new maplibregl.Marker({ element: el, anchor: "center" })
         .setLngLat([location.lon, location.lat])
         .setPopup(popup)
-        .addTo(map);
+        .addTo(currentMap);
 
       activeMarkers.set(key, { marker, popupContainer });
     }
@@ -318,7 +343,7 @@ const renderMarkers = () => {
   bench.measure("map:renderMarkers", activeMarkers.size);
 };
 
-let playbackMarker = null;
+let playbackMarker: maplibregl.Marker | null = null;
 
 const renderPlaybackMarker = () => {
   if (!map) return;
@@ -429,11 +454,11 @@ const sampledData = () => {
   return result;
 };
 
-const getLinesGeoJSON = () => {
+const getLinesGeoJSON = (): FeatureCollection => {
   bench.mark("geojson:lines");
   const features = sampledData()
     .segments.filter((segment) => segment.coordinates.length > 1)
-    .map((segment) => ({
+    .map((segment): GeoJSON.Feature => ({
       type: "Feature",
       properties: { color: locationStore.userColor(segment.user) },
       geometry: { type: "LineString", coordinates: segment.coordinates },
@@ -449,9 +474,9 @@ const getLinesGeoJSON = () => {
  * heatmap layers, and colour is a per-user property, so this collapses what
  * used to be one object per location into one object per user.
  */
-const getUserPointsGeoJSON = () => {
+const getUserPointsGeoJSON = (): FeatureCollection => {
   bench.mark("geojson:userPoints");
-  const features = [];
+  const features: GeoJSON.Feature[] = [];
   let count = 0;
   sampledData().pointsByUser.forEach((coordinates, user) => {
     if (coordinates.length === 0) return;
@@ -466,18 +491,24 @@ const getUserPointsGeoJSON = () => {
   return { type: "FeatureCollection", features };
 };
 
-const getPoiGeoJSON = () => {
+const getPoiGeoJSON = (): FeatureCollection => {
   bench.mark("geojson:poi");
-  const features = locationStore.mapGeoData.pois.map((poi) => ({
+  const features = locationStore.mapGeoData.pois.map(
+    (poi): GeoJSON.Feature => ({
     type: "Feature",
     properties: { poi: poi.poi, color: locationStore.userColor(poi.user) },
-    geometry: { type: "Point", coordinates: poi.coordinate },
-  }));
+      geometry: { type: "Point", coordinates: poi.coordinate },
+    })
+  );
   bench.measure("geojson:poi", features.length);
   return { type: "FeatureCollection", features };
 };
 
-const createGeoJSONCircle = (center, radiusInMeters, points = 64) => {
+const createGeoJSONCircle = (
+  center: Coordinate,
+  radiusInMeters: number,
+  points = 64
+): GeoJSON.Polygon => {
   const coords = { latitude: center[1], longitude: center[0] };
   const km = radiusInMeters / 1000;
   const ret = [];
@@ -494,14 +525,14 @@ const createGeoJSONCircle = (center, radiusInMeters, points = 64) => {
   return { type: "Polygon", coordinates: [ret] };
 };
 
-const getAccuracyCirclesGeoJSON = () => {
+const getAccuracyCirclesGeoJSON = (): FeatureCollection => {
   bench.mark("geojson:accuracyCircles");
   const features = locationStore.filteredLastLocations
-    .filter((l) => l.acc)
-    .map((l) => ({
+    .filter((l) => l.acc && l.username)
+    .map((l): GeoJSON.Feature => ({
       type: "Feature",
-      properties: { color: locationStore.userColor(l.username) },
-      geometry: createGeoJSONCircle([l.lon, l.lat], l.acc),
+      properties: { color: locationStore.userColor(l.username as User) },
+      geometry: createGeoJSONCircle([l.lon, l.lat], l.acc as number),
     }));
   bench.measure("geojson:accuracyCircles", features.length);
   return { type: "FeatureCollection", features };
@@ -544,7 +575,9 @@ const initSourcesAndLayers = () => {
   if (map.getSource("history-lines")) return;
 
   const { layers } = locationStore;
-  const visible = (shown) => ({ visibility: shown ? "visible" : "none" });
+  const visible = (shown: boolean) => ({
+    visibility: (shown ? "visible" : "none") as "visible" | "none",
+  });
 
   // Images do not survive a style change, so this runs alongside the sources.
   if (!map.hasImage("direction-arrow")) {
@@ -734,12 +767,19 @@ const initSourcesAndLayers = () => {
  * sources exist yet; those are created by `initSourcesAndLayers` on style load.
  */
 const updateGeoJSON = () => {
-  if (!map || !map.getSource("history-lines")) return;
+  const currentMap = map;
+  if (!currentMap || !currentMap.getSource("history-lines")) return;
   bench.mark("map:updateGeoJSON");
 
   const { layers } = locationStore;
-  const setData = (sourceId, name, build) => {
-    const source = map.getSource(sourceId);
+  const setData = (
+    sourceId: string,
+    name: string,
+    build: () => FeatureCollection
+  ) => {
+    const source = currentMap.getSource(sourceId) as
+      | maplibregl.GeoJSONSource
+      | undefined;
     if (!source) return;
     const data = build();
     bench.time(`map:setData:${name}`, () => source.setData(data));
@@ -760,9 +800,9 @@ const updateGeoJSON = () => {
     "accuracy-circles-layer": layers.last,
     "accuracy-circles-outline": layers.last,
   };
-  Object.keys(visibility).forEach((layerId) => {
-    if (map.getLayer(layerId)) {
-      map.setLayoutProperty(
+  (Object.keys(visibility) as (keyof typeof visibility)[]).forEach((layerId) => {
+    if (currentMap.getLayer(layerId)) {
+      currentMap.setLayoutProperty(
         layerId,
         "visibility",
         visibility[layerId] ? "visible" : "none"
@@ -814,7 +854,7 @@ onMounted(() => {
   if (!webglSupported) return;
 
   map = new maplibregl.Map({
-    container: mapContainer.value,
+    container: mapContainer.value as HTMLElement,
     style: currentStyle.value,
     // The store guarantees numbers here.
     center: [locationStore.map.center.lng, locationStore.map.center.lat],
@@ -851,9 +891,10 @@ onMounted(() => {
 
   // Sampling is tied to the zoom level, so redraw when it changes enough to
   // change the tolerance.
-  let lastSampledZoom = null;
-  map.on("zoomend", () => {
-    const zoom = Math.floor(map.getZoom());
+  let lastSampledZoom: number | null = null;
+  const created = map;
+  created.on("zoomend", () => {
+    const zoom = Math.floor(created.getZoom());
     if (zoom === lastSampledZoom) return;
     lastSampledZoom = zoom;
     updateGeoJSON();

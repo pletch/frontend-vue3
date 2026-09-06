@@ -52,6 +52,8 @@ window.owntracks.config = {};
   - [`maxPointDistance`](#mapmaxpointdistance)
   - [`poiMarker`](#mappoimarker)
   - [`polyline`](#mappolyline)
+  - [`polyline.opacity`](#mappolylineopacity)
+  - [`polyline.weight`](#mappolylineweight)
 - `onLocationChange`
   - [`fitView`](#onlocationchangefitview)
   - [`reloadHistory`](#onlocationchangereloadhistory)
@@ -369,6 +371,20 @@ splitting into separate lines.
     },
   };
   ```
+
+### `map.polyline.opacity`
+
+Opacity of the location history line.
+
+- Type: [`Number`]
+- Default: `0.8`
+
+### `map.polyline.weight`
+
+Width of the location history line, in pixels.
+
+- Type: [`Number`]
+- Default: `3`
 
 ### `map.poiMarker`
 

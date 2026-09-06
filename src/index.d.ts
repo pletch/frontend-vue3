@@ -59,6 +59,10 @@ interface Config {
     polyline: {
       color: OptionalColor;
       fillColor: OptionalColor;
+      /** Line opacity, 0 to 1 */
+      opacity: number;
+      /** Line width in pixels */
+      weight: number;
     };
   };
   onLocationChange: {

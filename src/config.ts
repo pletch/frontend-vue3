@@ -69,6 +69,8 @@ const DEFAULT_CONFIG: Config = {
     polyline: {
       color: null,
       fillColor: "transparent",
+      opacity: 0.8,
+      weight: 3,
     },
   },
   onLocationChange: {
