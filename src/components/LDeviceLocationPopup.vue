@@ -147,7 +147,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { useIntersectionObserver } from "@vueuse/core";
 import {
@@ -251,7 +251,7 @@ const props = defineProps({
 });
 
 const rootElement = ref(null);
-const resolvedAddress = ref(null);
+const resolvedAddress = ref<string | null>(null);
 const isFetchingAddress = ref(false);
 
 const displayAddress = computed(() => resolvedAddress.value || props.address);

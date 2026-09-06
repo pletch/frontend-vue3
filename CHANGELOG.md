@@ -58,7 +58,9 @@ Dates are in UTC.
 - Began converting the codebase to TypeScript, starting with the pure-logic modules: `track`, `history`, `simplify` and `sampler`. `allowJs` is on and `checkJs` off, so the remaining JavaScript is unaffected and conversion can continue file by file. Added a `npm run typecheck` script.
 - Corrected the `OTLocation` type declaration, which was missing `motionactivities` and `addr` despite both being used, and marked `_http` and `disptst` required when they are not.
 - Moved `puppeteer` from `dependencies` to `devDependencies`; it is a test-harness dependency and was being installed in production installs.
-- Converted the store, API client, `util` and `config` to TypeScript, alongside the pure-logic modules. Components remain JavaScript.
+- Converted the store, API client, `util` and `config` to TypeScript, alongside the pure-logic modules.
+- Converted every component to TypeScript, so all application code is now type checked.
+- `map.polyline.weight` and `map.polyline.opacity` now work. Both were read by the map but never declared, defaulted or documented, so setting either had no effect.
 
 ### Fixed
 

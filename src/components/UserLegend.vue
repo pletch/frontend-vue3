@@ -16,7 +16,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
 
 import { useLocationStore } from "@/store/location";
@@ -26,15 +26,17 @@ const locationStore = useLocationStore();
 // Only the users actually on the map, so the legend describes what is visible
 // rather than everything the recorder knows about.
 const entries = computed(() => {
-  const visible = new Set();
+  const visible = new Set<User>();
   locationStore.mapGeoData.pointsByUser.forEach((coordinates, user) => {
     if (coordinates.length > 0) {
       visible.add(user);
     }
   });
-  locationStore.filteredLastLocations.forEach((location) =>
-    visible.add(location.username)
-  );
+  locationStore.filteredLastLocations.forEach((location) => {
+    if (location.username) {
+      visible.add(location.username);
+    }
+  });
 
   return [...visible]
     .filter(Boolean)

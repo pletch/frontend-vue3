@@ -55,7 +55,7 @@
               @change="
                 locationStore.setMapLayerVisibility({
                   layer: option.layer,
-                  visibility: $event.target.checked,
+                  visibility: ($event.target as HTMLInputElement).checked,
                 })
               "
             />
@@ -103,7 +103,7 @@
           :shortcuts="shortcuts"
           :show-time-panel="showTimeRangePanel"
           @show-time-panel-change="showTimeRangePanel = $event"
-          :disabled-date="(date) => date > new Date()"
+          :disabled-date="(date: Date) => date > new Date()"
           @open="showTimeRangePanel = false"
         >
           <template #footer>
@@ -176,7 +176,10 @@
               class="mr-3 cursor-pointer accent-primary"
               :checked="locationStore.selectedUsers.includes(user)"
               @change="
-                locationStore.toggleSelectedUser(user, $event.target.checked)
+                locationStore.toggleSelectedUser(
+                  user,
+                  ($event.target as HTMLInputElement).checked
+                )
               "
             />
             <span
@@ -275,9 +278,10 @@
   </header>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from "vue";
 import { useLocationStore } from "@/store/location";
+import type { LayerName } from "@/store/location";
 import { useWindowSize, useDark, useToggle } from "@vueuse/core";
 import { useI18n } from "vue-i18n";
 import config from "@/config";
@@ -311,7 +315,7 @@ const { width } = useWindowSize();
 const isDark = useDark();
 const toggleDark = useToggle(isDark);
 
-const layerSettingsOptions = [
+const layerSettingsOptions: { layer: LayerName; label: string }[] = [
   { layer: "last", label: "layers.last" },
   { layer: "line", label: "layers.line" },
   { layer: "points", label: "layers.points" },
@@ -520,7 +524,7 @@ const canShiftForward = computed(() =>
   moment.utc(locationStore.endDateTime).isBefore(moment.utc())
 );
 
-const shiftDateRange = (direction) => {
+const shiftDateRange = (direction: number) => {
   if (direction > 0 && !canShiftForward.value) {
     return;
   }

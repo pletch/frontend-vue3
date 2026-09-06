@@ -15,7 +15,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { onMounted, watch, watchEffect } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -62,7 +62,7 @@ const updateUrlQuery = () => {
     selectedUsers: users,
     selectedDevice: device,
   } = locationStore;
-  const activeLayers = Object.keys(layers).filter(
+  const activeLayers = (Object.keys(layers) as (keyof typeof layers)[]).filter(
     (key) => layers[key] === true
   );
   const query = {

@@ -107,7 +107,7 @@
   </teleport>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { useLocationStore } from "@/store/location";
 import { AtSignIcon, BookIcon, GithubIcon, GlobeIcon } from "lucide-vue-next";
 

@@ -81,10 +81,12 @@ See [`docs/config.md`](docs/config.md) for all available options.
 
 ### TypeScript
 
-The store, API client and supporting modules (`store/location`, `api`, `util`,
-`config`, `track`, `history`, `simplify`, `sampler`, `geo`) are TypeScript.
-Components are still JavaScript and are bundled normally: `allowJs` is on and
-`checkJs` is off, so conversion can continue file by file without a flag day.
+All application code and every component is TypeScript. What remains in
+JavaScript is the benchmark harness and small glue (`main`, `router`, `i18n`,
+`logging`, `constants`); `allowJs` is on and `checkJs` off, so those are
+bundled as before.
+
+Run `npm run typecheck` to check the project.
 
 Shared domain types (`OTLocation`, `Config`, `QueryParams`, `User`, `Device`)
 are ambient declarations in [`src/index.d.ts`](src/index.d.ts); geometry types

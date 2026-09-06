@@ -26,7 +26,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from "vue";
 import { useLocationStore } from "@/store/location";
 import { PlayIcon, PauseIcon } from "lucide-vue-next";
@@ -45,7 +45,7 @@ const containerClass = [
 ].join(" ");
 const isPlaying = ref(false);
 const currentIndex = ref(0);
-let interval = null;
+let interval: ReturnType<typeof setInterval> | null = null;
 
 // The store owns this derivation so that components do not need to know how
 // changes to the (columnar, in-place mutated) history are signalled.

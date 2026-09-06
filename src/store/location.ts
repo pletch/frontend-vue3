@@ -51,6 +51,9 @@ interface DerivedState {
   devices: Map<string, DerivedCursor>;
 }
 
+/** Name of a toggleable map layer. */
+export type LayerName = keyof Layers;
+
 /** The visible map layers, persisted to local storage. */
 interface Layers {
   heatmap: boolean;

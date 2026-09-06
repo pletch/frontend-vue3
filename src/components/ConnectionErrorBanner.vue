@@ -29,7 +29,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { TriangleAlertIcon, XIcon } from "lucide-vue-next";
 
 import { useLocationStore } from "@/store/location";
