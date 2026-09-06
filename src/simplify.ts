@@ -9,17 +9,20 @@
  * Coordinates are `[lng, lat]` pairs throughout, matching GeoJSON order.
  */
 
+/** A GeoJSON position: longitude first, then latitude. */
+export type Coordinate = [number, number];
+
 // Web Mercator tile size, used to convert a pixel tolerance into degrees.
 const TILE_SIZE = 512;
 
 /**
  * Convert a tolerance in screen pixels to one in degrees at a given zoom.
  *
- * @param {Number} zoom Map zoom level
- * @param {Number} [pixels] Tolerance in pixels
- * @returns {Number} Tolerance in degrees of longitude at the equator
+ * @param zoom Map zoom level
+ * @param [pixels] Tolerance in pixels
+ * @returns Tolerance in degrees of longitude at the equator
  */
-export function toleranceForZoom(zoom, pixels = 1) {
+export function toleranceForZoom(zoom: number, pixels = 1): number {
   return (360 / (TILE_SIZE * Math.pow(2, zoom))) * pixels;
 }
 
@@ -30,13 +33,18 @@ export function toleranceForZoom(zoom, pixels = 1) {
  * longitude and a degree of latitude cover comparable ground, which keeps the
  * tolerance meaningful away from the equator.
  *
- * @param {Number[]} point Point as [lng, lat]
- * @param {Number[]} start Segment start as [lng, lat]
- * @param {Number[]} end Segment end as [lng, lat]
- * @param {Number} lngScale Longitude scaling factor
- * @returns {Number} Squared distance in scaled degrees
+ * @param point Point as [lng, lat]
+ * @param start Segment start as [lng, lat]
+ * @param end Segment end as [lng, lat]
+ * @param lngScale Longitude scaling factor
+ * @returns Squared distance in scaled degrees
  */
-function squaredSegmentDistance(point, start, end, lngScale) {
+function squaredSegmentDistance(
+  point: Coordinate,
+  start: Coordinate,
+  end: Coordinate,
+  lngScale: number
+): number {
   let x = start[0] * lngScale;
   let y = start[1];
   let dx = end[0] * lngScale - x;
@@ -65,14 +73,18 @@ function squaredSegmentDistance(point, start, end, lngScale) {
  *
  * Run before the Douglas-Peucker pass, which is much more expensive per point.
  *
- * @param {Number[][]} coordinates Coordinates as [lng, lat]
- * @param {Number} tolerance Tolerance in degrees
- * @param {Number} lngScale Longitude scaling factor
- * @returns {Number[][]} Reduced coordinates, endpoints preserved
+ * @param coordinates Coordinates as [lng, lat]
+ * @param tolerance Tolerance in degrees
+ * @param lngScale Longitude scaling factor
+ * @returns Reduced coordinates, endpoints preserved
  */
-function radialDistanceFilter(coordinates, tolerance, lngScale) {
+function radialDistanceFilter(
+  coordinates: Coordinate[],
+  tolerance: number,
+  lngScale: number
+): Coordinate[] {
   const squaredTolerance = tolerance * tolerance;
-  const result = [coordinates[0]];
+  const result: Coordinate[] = [coordinates[0]];
   let previous = coordinates[0];
 
   for (let i = 1; i < coordinates.length; i++) {
@@ -98,22 +110,26 @@ function radialDistanceFilter(coordinates, tolerance, lngScale) {
  * A recursive implementation overflows the stack on the long paths this is
  * meant for.
  *
- * @param {Number[][]} coordinates Coordinates as [lng, lat]
- * @param {Number} tolerance Tolerance in degrees
- * @param {Number} lngScale Longitude scaling factor
- * @returns {Number[][]} Simplified coordinates
+ * @param coordinates Coordinates as [lng, lat]
+ * @param tolerance Tolerance in degrees
+ * @param lngScale Longitude scaling factor
+ * @returns Simplified coordinates
  */
-function douglasPeucker(coordinates, tolerance, lngScale) {
+function douglasPeucker(
+  coordinates: Coordinate[],
+  tolerance: number,
+  lngScale: number
+): Coordinate[] {
   const last = coordinates.length - 1;
   const squaredTolerance = tolerance * tolerance;
   const keep = new Uint8Array(coordinates.length);
   keep[0] = 1;
   keep[last] = 1;
 
-  const stack = [0, last];
+  const stack: number[] = [0, last];
   while (stack.length > 0) {
-    const end = stack.pop();
-    const start = stack.pop();
+    const end = stack.pop() as number;
+    const start = stack.pop() as number;
 
     let furthest = 0;
     let index = -1;
@@ -136,7 +152,7 @@ function douglasPeucker(coordinates, tolerance, lngScale) {
     }
   }
 
-  const result = [];
+  const result: Coordinate[] = [];
   for (let i = 0; i < coordinates.length; i++) {
     if (keep[i]) {
       result.push(coordinates[i]);
@@ -148,11 +164,14 @@ function douglasPeucker(coordinates, tolerance, lngScale) {
 /**
  * Simplify a path to the detail visible at the given tolerance.
  *
- * @param {Number[][]} coordinates Coordinates as [lng, lat]
- * @param {Number} tolerance Tolerance in degrees, 0 or less to disable
- * @returns {Number[][]} Simplified coordinates
+ * @param coordinates Coordinates as [lng, lat]
+ * @param tolerance Tolerance in degrees, 0 or less to disable
+ * @returns Simplified coordinates
  */
-export function simplifyPath(coordinates, tolerance) {
+export function simplifyPath(
+  coordinates: Coordinate[],
+  tolerance: number
+): Coordinate[] {
   if (tolerance <= 0 || coordinates.length <= 2) {
     return coordinates;
   }
@@ -175,17 +194,20 @@ export function simplifyPath(coordinates, tolerance) {
  * Used for the history point and heatmap layers, where overlapping points at
  * low zoom are indistinguishable.
  *
- * @param {Number[][]} coordinates Coordinates as [lng, lat]
- * @param {Number} cellSize Grid cell size in degrees, 0 or less to disable
- * @returns {Number[][]} One coordinate per occupied cell
+ * @param coordinates Coordinates as [lng, lat]
+ * @param cellSize Grid cell size in degrees, 0 or less to disable
+ * @returns One coordinate per occupied cell
  */
-export function decimatePoints(coordinates, cellSize) {
+export function decimatePoints(
+  coordinates: Coordinate[],
+  cellSize: number
+): Coordinate[] {
   if (cellSize <= 0 || coordinates.length === 0) {
     return coordinates;
   }
 
-  const seen = new Set();
-  const result = [];
+  const seen = new Set<string>();
+  const result: Coordinate[] = [];
   for (let i = 0; i < coordinates.length; i++) {
     const point = coordinates[i];
     const key = `${Math.floor(point[0] / cellSize)}:${Math.floor(

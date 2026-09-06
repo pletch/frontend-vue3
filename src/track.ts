@@ -14,16 +14,16 @@
 
 // Motion activities come from a small fixed vocabulary, so they are interned
 // once and stored as an index rather than an array of strings per location.
-const activityVocabulary = [""];
-const activityIndex = new Map([["", 0]]);
+const activityVocabulary: string[] = [""];
+const activityIndex = new Map<string, number>([["", 0]]);
 
 /**
  * Intern a location's motion activities as a single dictionary index.
  *
- * @param {String[]} activities Motion activities
- * @returns {Number} Index into the vocabulary
+ * @param activities Motion activities
+ * @returns Index into the vocabulary
  */
-function internActivities(activities) {
+function internActivities(activities: string[] | undefined): number {
   if (!Array.isArray(activities) || activities.length === 0) {
     return 0;
   }
@@ -40,23 +40,45 @@ function internActivities(activities) {
 /**
  * Read back interned motion activities.
  *
- * @param {Number} index Vocabulary index
- * @returns {String[]|undefined} Motion activities, or undefined if none
+ * @param index Vocabulary index
+ * @returns Motion activities, or undefined if none
  */
-function readActivities(index) {
+function readActivities(index: number): string[] | undefined {
   const key = activityVocabulary[index];
   return key ? key.split(",") : undefined;
 }
 
 const INITIAL_CAPACITY = 64;
 
+/** History as the recorder returns it, keyed by user then device. */
+export type RawLocationHistory = Record<User, Record<Device, OTLocation[]>>;
+
+/** History as the app holds it, keyed by user then device. */
+export type TrackHistory = Record<User, Record<Device, Track>>;
+
 /** A device's location history, stored column by column. */
 export class Track {
+  user: User;
+  device: Device;
+  length: number;
+  capacity: number;
+
+  tst: Float64Array;
+  lat: Float64Array;
+  lon: Float64Array;
+  acc: Float32Array;
+  alt: Float32Array;
+  vel: Float32Array;
+  activity: Uint16Array;
+
+  /** Sparse, keyed by index into the columns. */
+  poi: Map<number, string>;
+
   /**
-   * @param {User} [user] Username this track belongs to
-   * @param {Device} [device] Device name this track belongs to
+   * @param [user] Username this track belongs to
+   * @param [device] Device name this track belongs to
    */
-  constructor(user = "", device = "") {
+  constructor(user: User = "", device: Device = "") {
     this.user = user;
     this.device = device;
     this.length = 0;
@@ -80,9 +102,9 @@ export class Track {
   /**
    * Grow the columns to hold at least `needed` entries.
    *
-   * @param {Number} needed Required capacity
+   * @param needed Required capacity
    */
-  reserve(needed) {
+  reserve(needed: number): void {
     if (needed <= this.capacity) {
       return;
     }
@@ -94,9 +116,12 @@ export class Track {
       capacity *= 2;
     }
 
-    const grow = (column, Type) => {
+    const grow = <T extends Float64Array | Float32Array | Uint16Array>(
+      column: T,
+      Type: { new (length: number): T }
+    ): T => {
       const next = new Type(capacity);
-      next.set(column);
+      next.set(column as never);
       return next;
     };
     this.tst = grow(this.tst, Float64Array);
@@ -112,10 +137,10 @@ export class Track {
   /**
    * Append a location. The caller is responsible for ordering.
    *
-   * @param {OTLocation} location Location to append
-   * @returns {Number} Index the location was written at
+   * @param location Location to append
+   * @returns Index the location was written at
    */
-  push(location) {
+  push(location: OTLocation): number {
     const index = this.length;
     this.reserve(index + 1);
 
@@ -138,10 +163,10 @@ export class Track {
   /**
    * Overwrite the location at an index.
    *
-   * @param {Number} index Index to write
-   * @param {OTLocation} location Replacement location
+   * @param index Index to write
+   * @param location Replacement location
    */
-  set(index, location) {
+  set(index: number, location: OTLocation): void {
     this.tst[index] = location.tst ?? 0;
     this.lat[index] = location.lat ?? 0;
     this.lon[index] = location.lon ?? 0;
@@ -159,9 +184,9 @@ export class Track {
   /**
    * Timestamp of the newest location held.
    *
-   * @returns {Number} Timestamp, or -Infinity when empty
+   * @returns Timestamp, or -Infinity when empty
    */
-  lastTst() {
+  lastTst(): number {
     return this.length > 0 ? this.tst[this.length - 1] : -Infinity;
   }
 
@@ -171,14 +196,14 @@ export class Track {
    * Used for the playback marker and its popup, which only ever need one
    * location at a time.
    *
-   * @param {Number} index Index to read
-   * @returns {OTLocation|null} The location, or null if out of range
+   * @param index Index to read
+   * @returns The location, or null if out of range
    */
-  at(index) {
+  at(index: number): OTLocation | null {
     if (index < 0 || index >= this.length) {
       return null;
     }
-    const location = {
+    const location: OTLocation = {
       _type: "location",
       username: this.user,
       device: this.device,
@@ -201,10 +226,10 @@ export class Track {
   /**
    * Find where a timestamp belongs, keeping the track sorted oldest first.
    *
-   * @param {Number} tst Timestamp to place
-   * @returns {Number} Insertion index
+   * @param tst Timestamp to place
+   * @returns Insertion index
    */
-  indexFor(tst) {
+  indexFor(tst: number): number {
     let low = 0;
     let high = this.length;
     while (low < high) {
@@ -224,17 +249,19 @@ export class Track {
    * Out-of-order arrivals are rare, so the cost of shifting is accepted rather
    * than complicating the layout.
    *
-   * @param {Number} index Index to insert at
-   * @param {OTLocation} location Location to insert
+   * @param index Index to insert at
+   * @param location Location to insert
    */
-  insert(index, location) {
+  insert(index: number, location: OTLocation): void {
     if (index >= this.length) {
       this.push(location);
       return;
     }
     this.reserve(this.length + 1);
 
-    const shift = (column) => column.copyWithin(index + 1, index, this.length);
+    const shift = (column: {
+      copyWithin(target: number, start: number, end: number): unknown;
+    }) => column.copyWithin(index + 1, index, this.length);
     shift(this.tst);
     shift(this.lat);
     shift(this.lon);
@@ -245,7 +272,7 @@ export class Track {
 
     // Sparse point-of-interest keys move with their locations.
     if (this.poi.size > 0) {
-      const moved = new Map();
+      const moved = new Map<number, string>();
       this.poi.forEach((value, key) => {
         moved.set(key >= index ? key + 1 : key, value);
       });
@@ -259,12 +286,12 @@ export class Track {
   /**
    * Build a track from an array of raw locations, assumed sorted.
    *
-   * @param {User} user Username
-   * @param {Device} device Device name
-   * @param {OTLocation[]} locations Locations, oldest first
-   * @returns {Track} Populated track
+   * @param user Username
+   * @param device Device name
+   * @param locations Locations, oldest first
+   * @returns Populated track
    */
-  static from(user, device, locations) {
+  static from(user: User, device: Device, locations: OTLocation[]): Track {
     const track = new Track(user, device);
     track.reserve(locations.length);
     for (let i = 0; i < locations.length; i++) {
@@ -277,15 +304,18 @@ export class Track {
 /**
  * Convert a raw history structure into tracks.
  *
- * @param {Object} history History keyed by user, then device
- * @returns {Object} The same shape, with `Track` values
+ * @param history History keyed by user, then device
+ * @returns The same shape, with `Track` values
  */
-export function tracksFromHistory(history) {
-  const tracks = {};
-  Object.keys(history || {}).forEach((user) => {
+export function tracksFromHistory(
+  history: RawLocationHistory | null | undefined
+): TrackHistory {
+  const tracks: TrackHistory = {};
+  const source = history ?? {};
+  Object.keys(source).forEach((user) => {
     tracks[user] = {};
-    Object.keys(history[user]).forEach((device) => {
-      tracks[user][device] = Track.from(user, device, history[user][device]);
+    Object.keys(source[user]).forEach((device) => {
+      tracks[user][device] = Track.from(user, device, source[user][device]);
     });
   });
   return tracks;

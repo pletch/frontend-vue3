@@ -5,6 +5,7 @@ Dates are in UTC.
 ## [Unreleased] (2026-06-09)
 
 ### Added
+
 - Added locale units configuration (default: metric) for distance, speed, and elevation.
 - Completed full migration of frontend application to Vue 3 Composition API.
 - Implemented Tailwind CSS and removed extensive legacy SCSS code.
@@ -54,7 +55,12 @@ Dates are in UTC.
 - Long date ranges are now requested in slices (`api.historySlice`) and rendered as each slice arrives, so the map fills in progressively instead of staying empty until the whole range has transferred.
 - The loading indicator is no longer a blocking modal; it is a compact progress pill so the map stays visible while data loads.
 - The location history is now stored in typed arrays column by column rather than as one object per location, cutting retained memory for a 250k point history from about 59 MB to about 35 MB. Fields the app never reads are no longer kept at all.
+- Began converting the codebase to TypeScript, starting with the pure-logic modules: `track`, `history`, `simplify` and `sampler`. `allowJs` is on and `checkJs` off, so the remaining JavaScript is unaffected and conversion can continue file by file. Added a `npm run typecheck` script.
+- Corrected the `OTLocation` type declaration, which was missing `motionactivities` and `addr` despite both being used, and marked `_http` and `disptst` required when they are not.
+- Moved `puppeteer` from `dependencies` to `devDependencies`; it is a test-harness dependency and was being installed in production installs.
+
 ### Fixed
+
 - URL parameters were silently discarded on load: the app mounted before the router had resolved its initial navigation, so `route.query` was empty and every shared link fell back to the defaults. Shared links now restore the date range, users, layers and map position.
 - Loading a link to a past date range no longer has its end date dragged to the present by the real-time ticker.
 - Mobile: opening a device popup no longer leaves it clipped behind the navigation panel; the panel now closes when a popup opens or the map is tapped.
@@ -64,7 +70,9 @@ Dates are in UTC.
 - Live updates are no longer silently discarded. `updateGeoJSON()` guarded on `map.isStyleLoaded()`, which reports false whenever MapLibre has pending source or tile work, so after a large load every subsequent update did the full derive work and then threw it away, leaving the map stale.
 - The map no longer re-fits to the data on every live location update, which ignored `onLocationChange.fitView` and dragged the view out from under the user. It now re-fits only when the history is replaced wholesale.
 - Incoming WebSocket locations are placed with a binary search instead of re-sorting the whole device history on every message.
+
 ### Changed
+
 - Converted core components (`AppHeader.vue`, `Map.vue`, `LDeviceLocationPopup.vue`, `LHeatmap.vue`) to native `<script setup>` syntax.
 - Completely rebuilt map rendering logic to be proxy-aware and avoid infinite recursion crashes with Leaflet and Vue 3.
 - Renamed "Layer settings" button to "Display settings" for better clarity.
@@ -86,7 +94,6 @@ Dates are in UTC.
 ## 2.15.0 (2024-06-10)
 
 - Implement POI map layer (see [Booklet](https://owntracks.org/booklet/features/poi/))
-
   - Use the `map.poiMarker` config option to tweak the appearance, defaults to a red circle slightly larger than the default location points
   - Use `map.layers.poi` to change the layer visibility, defaults to `true`
 

@@ -16,6 +16,7 @@ a Vue 3 single page application. The recorder itself already ships with some bas
 pages, this is a more advanced interface with more functionality, all in one place.
 
 This fork introduces several major architectural improvements and features over the upstream repository:
+
 - Complete migration to Vue 3 Composition API and Pinia state management.
 - UI styling powered by Tailwind CSS.
 - High-performance native WebGL hardware acceleration via MapLibre GL JS (replacing Leaflet).
@@ -76,6 +77,15 @@ See [`docs/config.md`](docs/config.md) for all available options.
 - Run `npm run format:js` to format JavaScript/Vue files
 - Run `npm run format:md` to format Markdown files
 - Run `npm test` to run unit tests
+- Run `npm run typecheck` to type check TypeScript sources
+
+### TypeScript
+
+The pure-logic modules (`track`, `history`, `simplify`, `sampler`) are
+TypeScript. The rest of the codebase is still JavaScript and is bundled
+normally: `allowJs` is on and `checkJs` is off, so conversion can continue file
+by file without a flag day. Shared domain types (`OTLocation`, `User`,
+`Device`) are ambient declarations in [`src/index.d.ts`](src/index.d.ts).
 
 ### CORS-Proxy
 

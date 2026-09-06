@@ -5,6 +5,7 @@ import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended"
 import vueParser from "vue-eslint-parser";
 import { FlatCompat } from "@eslint/eslintrc";
 import globals from "globals";
+import tseslint from "typescript-eslint";
 
 const eslintrc = new FlatCompat({
   baseDirectory: dirname(fileURLToPath(import.meta.url)),
@@ -53,6 +54,19 @@ export default [
           ignores: ["Map"],
         },
       ],
+    },
+  },
+  // TypeScript sources are parsed by the TypeScript parser rather than the
+  // Vue one, and skip rules the compiler already enforces.
+  {
+    files: ["**/*.ts"],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: { ecmaVersion: "latest", sourceType: "module" },
+    },
+    rules: {
+      "no-undef": "off",
+      "no-unused-vars": "off",
     },
   },
 ];

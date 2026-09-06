@@ -11,6 +11,20 @@ import moment from "moment";
 
 import { DATE_TIME_FORMAT } from "@/constants";
 import { Track } from "@/track";
+import type { RawLocationHistory, TrackHistory } from "@/track";
+
+/** One request covering part of a longer date range. */
+export interface DateSlice {
+  from: string;
+  to: string;
+}
+
+/** A run of points appended to a track by a merge. */
+export interface AppendedRange {
+  track: Track;
+  from: number;
+  to: number;
+}
 
 /**
  * Split a date range into consecutive slices.
@@ -20,13 +34,18 @@ import { Track } from "@/track";
  * produce more than `maxSlices`, the slices are widened instead so that a very
  * long range cannot flood the recorder with requests.
  *
- * @param {String} start Start date and time
- * @param {String} end End date and time
- * @param {Number} days Slice length in days, 0 or less for a single slice
- * @param {Number} [maxSlices] Most slices to produce
+ * @param start Start date and time
+ * @param end End date and time
+ * @param days Slice length in days, 0 or less for a single slice
+ * @param [maxSlices] Most slices to produce
  * @returns {Array<{from: String, to: String}>} Slices, oldest first
  */
-export function buildDateSlices(start, end, days, maxSlices = 32) {
+export function buildDateSlices(
+  start: string,
+  end: string,
+  days: number,
+  maxSlices = 32
+): DateSlice[] {
   const from = moment.utc(start, DATE_TIME_FORMAT, true);
   const to = moment.utc(end, DATE_TIME_FORMAT, true);
   const whole = [{ from: start, to: end }];
@@ -46,7 +65,7 @@ export function buildDateSlices(start, end, days, maxSlices = 32) {
     return whole;
   }
 
-  const slices = [];
+  const slices: DateSlice[] = [];
   let cursor = from.clone();
   while (cursor.isBefore(to)) {
     const next = moment.min(cursor.clone().add(sliceMs, "milliseconds"), to);
@@ -68,12 +87,15 @@ export function buildDateSlices(start, end, days, maxSlices = 32) {
  * already held are dropped, which removes the duplicate that appears when the
  * recorder treats both ends of a range as inclusive.
  *
- * @param {Object} history Tracks keyed by user, then device, mutated in place
- * @param {Object} slice Raw history for the same devices, from the API
+ * @param history Tracks keyed by user, then device, mutated in place
+ * @param slice Raw history for the same devices, from the API
  * @returns {Array<{track: Track, from: Number, to: Number}>} Appended ranges
  */
-export function mergeHistorySlice(history, slice) {
-  const ranges = [];
+export function mergeHistorySlice(
+  history: TrackHistory,
+  slice: RawLocationHistory
+): AppendedRange[] {
+  const ranges: AppendedRange[] = [];
 
   Object.keys(slice).forEach((user) => {
     if (!history[user]) {

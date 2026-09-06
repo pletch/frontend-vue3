@@ -12,6 +12,50 @@
  */
 
 import { simplifyPath, decimatePoints } from "@/simplify";
+import type { Coordinate } from "@/simplify";
+
+/** One line segment of a device's track. */
+export interface Segment {
+  user: User;
+  device: Device;
+  coordinates: Coordinate[];
+}
+
+/** The subset of the store's derived data that sampling operates on. */
+export interface SampleInput {
+  segments: Segment[];
+  pointsByUser: Map<User, Coordinate[]>;
+}
+
+/** A segment plus the bookkeeping needed to extend it incrementally. */
+interface SegmentEntry extends Segment {
+  source: Coordinate[];
+  consumed: number;
+  provisional: boolean;
+  addedSinceCompaction: number;
+}
+
+/** A point cloud plus the cells already occupied. */
+interface PointsEntry {
+  source: Coordinate[];
+  consumed: number;
+  cells: Set<string>;
+  coordinates: Coordinate[];
+}
+
+interface Cache {
+  tolerance: number;
+  sourceSegments: Segment[];
+  sourcePoints: Map<User, Coordinate[]>;
+  segments: SegmentEntry[];
+  users: Map<User, PointsEntry>;
+}
+
+/** A sampler holding its own cache across calls. */
+export interface Sampler {
+  sample(data: SampleInput, tolerance: number): SampleInput;
+  reset(): void;
+}
 
 // How many incrementally kept points to allow before re-simplifying a
 // segment's retained points.
@@ -21,22 +65,26 @@ const COMPACTION_THRESHOLD = 32;
  * Longitude scaling factor at a latitude, so that a degree of longitude and a
  * degree of latitude cover comparable ground.
  *
- * @param {Number} lat Latitude in degrees
- * @returns {Number} Scaling factor
+ * @param lat Latitude in degrees
+ * @returns Scaling factor
  */
-function lngScaleAt(lat) {
+function lngScaleAt(lat: number): number {
   return Math.max(Math.cos((lat * Math.PI) / 180), 0.01);
 }
 
 /**
  * Whether two coordinates are further apart than the tolerance.
  *
- * @param {Number[]} a First coordinate
- * @param {Number[]} b Second coordinate
- * @param {Number} tolerance Tolerance in degrees
- * @returns {Boolean} True if the points are distinguishable
+ * @param a First coordinate
+ * @param b Second coordinate
+ * @param tolerance Tolerance in degrees
+ * @returns True if the points are distinguishable
  */
-function beyondTolerance(a, b, tolerance) {
+function beyondTolerance(
+  a: Coordinate,
+  b: Coordinate,
+  tolerance: number
+): boolean {
   const scale = lngScaleAt(b[1]);
   const dx = (b[0] - a[0]) * scale;
   const dy = b[1] - a[1];
@@ -46,19 +94,19 @@ function beyondTolerance(a, b, tolerance) {
 /**
  * Create a sampler holding its own cache.
  *
- * @returns {Object} Sampler with `sample()` and `reset()`
+ * @returns Sampler with `sample()` and `reset()`
  */
-export function createSampler() {
-  let cache = null;
+export function createSampler(): Sampler {
+  let cache: Cache | null = null;
 
   /**
    * Sample a segment from scratch.
    *
-   * @param {Object} segment Source segment
-   * @param {Number} tolerance Tolerance in degrees
-   * @returns {Object} Cache entry for the segment
+   * @param segment Source segment
+   * @param tolerance Tolerance in degrees
+   * @returns Cache entry for the segment
    */
-  function sampleSegment(segment, tolerance) {
+  function sampleSegment(segment: Segment, tolerance: number): SegmentEntry {
     const coordinates = simplifyPath(segment.coordinates, tolerance).slice();
     return {
       user: segment.user,
@@ -81,10 +129,10 @@ export function createSampler() {
    * the data does; it is marked provisional and removed again before the next
    * batch is considered.
    *
-   * @param {Object} entry Cache entry to extend
-   * @param {Number} tolerance Tolerance in degrees
+   * @param entry Cache entry to extend
+   * @param tolerance Tolerance in degrees
    */
-  function extendSegment(entry, tolerance) {
+  function extendSegment(entry: SegmentEntry, tolerance: number): void {
     const source = entry.source;
     if (entry.consumed >= source.length) {
       return;
@@ -125,13 +173,16 @@ export function createSampler() {
    * Sample a point cloud from scratch, remembering the occupied cells so that
    * later points can be tested without revisiting the whole cloud.
    *
-   * @param {Number[][]} coordinates Source coordinates
-   * @param {Number} cellSize Grid cell size in degrees
-   * @returns {Object} Cache entry for the point cloud
+   * @param coordinates Source coordinates
+   * @param cellSize Grid cell size in degrees
+   * @returns Cache entry for the point cloud
    */
-  function samplePoints(coordinates, cellSize) {
+  function samplePoints(
+    coordinates: Coordinate[],
+    cellSize: number
+  ): PointsEntry {
     const kept = decimatePoints(coordinates, cellSize).slice();
-    const cells = new Set();
+    const cells = new Set<string>();
     kept.forEach((point) =>
       cells.add(
         `${Math.floor(point[0] / cellSize)}:${Math.floor(point[1] / cellSize)}`
@@ -148,10 +199,10 @@ export function createSampler() {
   /**
    * Extend a sampled point cloud with points added since it was last sampled.
    *
-   * @param {Object} entry Cache entry to extend
-   * @param {Number} cellSize Grid cell size in degrees
+   * @param entry Cache entry to extend
+   * @param cellSize Grid cell size in degrees
    */
-  function extendPoints(entry, cellSize) {
+  function extendPoints(entry: PointsEntry, cellSize: number): void {
     for (let i = entry.consumed; i < entry.source.length; i++) {
       const point = entry.source[i];
       const key = `${Math.floor(point[0] / cellSize)}:${Math.floor(
@@ -169,59 +220,65 @@ export function createSampler() {
     /**
      * Sample the given map data at the given tolerance.
      *
-     * @param {Object} data `mapGeoData` value
-     * @param {Number} tolerance Tolerance in degrees, 0 or less to pass through
-     * @returns {Object} `segments` and `pointsByUser`, sampled
+     * @param data `mapGeoData` value
+     * @param tolerance Tolerance in degrees, 0 or less to pass through
+     * @returns `segments` and `pointsByUser`, sampled
      */
-    sample(data, tolerance) {
+    sample(data: SampleInput, tolerance: number): SampleInput {
       if (tolerance <= 0) {
         cache = null;
         return { segments: data.segments, pointsByUser: data.pointsByUser };
       }
 
       const cellSize = tolerance * 2;
-      const reusable =
-        cache !== null &&
-        cache.tolerance === tolerance &&
-        cache.sourceSegments === data.segments &&
-        cache.sourcePoints === data.pointsByUser;
+      const existing = cache;
 
-      if (!reusable) {
-        cache = {
+      // Written as a direct check rather than via a boolean so that the
+      // narrowing survives into the branch below.
+      if (
+        existing === null ||
+        existing.tolerance !== tolerance ||
+        existing.sourceSegments !== data.segments ||
+        existing.sourcePoints !== data.pointsByUser
+      ) {
+        const fresh: Cache = {
           tolerance,
           sourceSegments: data.segments,
           sourcePoints: data.pointsByUser,
-          segments: data.segments.map((s) => sampleSegment(s, tolerance)),
+          segments: data.segments.map((segment) =>
+            sampleSegment(segment, tolerance)
+          ),
           users: new Map(),
         };
         data.pointsByUser.forEach((coordinates, user) => {
-          cache.users.set(user, samplePoints(coordinates, cellSize));
+          fresh.users.set(user, samplePoints(coordinates, cellSize));
         });
-        return output(cache);
+        cache = fresh;
+        return output(fresh);
       }
 
       // Same data and tolerance: extend with whatever arrived since.
       for (let i = 0; i < data.segments.length; i++) {
-        if (i < cache.segments.length) {
-          extendSegment(cache.segments[i], tolerance);
+        if (i < existing.segments.length) {
+          extendSegment(existing.segments[i], tolerance);
         } else {
-          cache.segments.push(sampleSegment(data.segments[i], tolerance));
+          existing.segments.push(sampleSegment(data.segments[i], tolerance));
         }
       }
       data.pointsByUser.forEach((coordinates, user) => {
-        const entry = cache.users.get(user);
+        const entry = existing.users.get(user);
         if (entry && entry.source === coordinates) {
           extendPoints(entry, cellSize);
         } else {
-          cache.users.set(user, samplePoints(coordinates, cellSize));
+          existing.users.set(user, samplePoints(coordinates, cellSize));
         }
       });
 
-      return output(cache);
+      return output(existing);
     },
 
     /** Discard the cache, forcing a full pass on the next call. */
-    reset() {
+    reset(): void {
       cache = null;
     },
   };
@@ -229,11 +286,11 @@ export function createSampler() {
   /**
    * Shape the cache into the form the map consumes.
    *
-   * @param {Object} current Cache
-   * @returns {Object} `segments` and `pointsByUser`
+   * @param current Cache
+   * @returns `segments` and `pointsByUser`
    */
-  function output(current) {
-    const pointsByUser = new Map();
+  function output(current: Cache): SampleInput {
+    const pointsByUser = new Map<User, Coordinate[]>();
     current.users.forEach((entry, user) =>
       pointsByUser.set(user, entry.coordinates)
     );
