@@ -75,8 +75,19 @@ import {
   render,
   getCurrentInstance,
 } from "vue";
-import maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
+// MapLibre is 285 KB gzipped - roughly three quarters of the bundle - so it is
+// fetched as its own chunk rather than blocking the first paint. `main.js`
+// starts that fetch as the app boots, so it downloads alongside the shell
+// rather than after it, and `onMounted` below waits for it. Only the types are
+// needed at module scope.
+import type MapLibreGL from "maplibre-gl";
+import type {
+  Map as MapLibreMap,
+  Marker as MapLibreMarker,
+  GeoJSONSource,
+} from "maplibre-gl";
+
+let maplibregl: typeof MapLibreGL;
 import { useLocationStore } from "@/store/location";
 import config from "@/config";
 import { useDark } from "@vueuse/core";
@@ -95,6 +106,7 @@ interface ActivityIcon {
 type FeatureCollection = GeoJSON.FeatureCollection;
 import { toleranceForZoom } from "@/simplify";
 import { createSampler } from "@/sampler";
+import { padBounds, containsBounds, cullPath, cullPoints } from "@/cull";
 import LDeviceLocationPopup from "@/components/LDeviceLocationPopup.vue";
 import {
   PersonStandingIcon,
@@ -106,7 +118,7 @@ import {
 } from "lucide-vue-next";
 
 const mapContainer = ref<HTMLElement | null>(null);
-let map: maplibregl.Map | null = null;
+let map: MapLibreMap | null = null;
 const locationStore = useLocationStore();
 
 const SOFTWARE_RENDERERS = ["swiftshader", "llvmpipe", "software"];
@@ -343,7 +355,7 @@ const renderMarkers = () => {
   bench.measure("map:renderMarkers", activeMarkers.size);
 };
 
-let playbackMarker: maplibregl.Marker | null = null;
+let playbackMarker: MapLibreMarker | null = null;
 
 const renderPlaybackMarker = () => {
   if (!map) return;
@@ -455,6 +467,61 @@ const sampledData = () => {
 };
 
 /**
+ * The bounds the drawn geometry is currently culled to, or null when
+ * everything is being drawn.
+ *
+ * Held rather than recomputed per builder so that every source in one update
+ * is culled to the same extent, and so `moveend` can tell whether the map has
+ * left what was last drawn.
+ */
+let activeCull: Bounds | null = null;
+
+/**
+ * The current viewport, in the order the rest of the app uses.
+ *
+ * @returns Viewport bounds, or null before the map exists
+ */
+const viewportBounds = (): Bounds | null => {
+  if (!map) return null;
+  const b = map.getBounds();
+  return {
+    minLng: b.getWest(),
+    minLat: b.getSouth(),
+    maxLng: b.getEast(),
+    maxLat: b.getNorth(),
+  };
+};
+
+/**
+ * The bounds to cull the drawn geometry to for the current view.
+ *
+ * Null means draw everything, which is both the configured-off case and the
+ * case where culling would achieve nothing: a small history, or one that
+ * already fits on screen. Returning null there matters because the builders
+ * then hand their coordinate arrays to MapLibre by reference, with no copy.
+ *
+ * @returns Bounds to cull to, or null to draw everything
+ */
+const cullBounds = (): Bounds | null => {
+  const culling = config.map.culling || {};
+  if (!map || culling.enabled === false) return null;
+
+  const data = locationStore.mapGeoData;
+  if (data.count < (culling.minPoints ?? 5000)) return null;
+
+  const view = viewportBounds();
+  // A viewport straddling the antimeridian comes back wrapped, with a west
+  // edge east of its east edge. Culling to it would reject everything, so
+  // draw the lot instead.
+  if (view === null || view.minLng > view.maxLng) return null;
+
+  const padded = padBounds(view, culling.padding ?? 0.5);
+  return data.bounds !== null && containsBounds(padded, data.bounds)
+    ? null
+    : padded;
+};
+
+/**
  * Whether a user's geometry should be left off the map.
  *
  * The stale filter drops a user's marker; their tracks, points and POIs go
@@ -470,15 +537,23 @@ const isHiddenUser = (user: User): boolean =>
 
 const getLinesGeoJSON = (): FeatureCollection => {
   bench.mark("geojson:lines");
-  const features = sampledData()
-    .segments.filter(
-      (segment) => segment.coordinates.length > 1 && !isHiddenUser(segment.user)
-    )
-    .map((segment): GeoJSON.Feature => ({
-      type: "Feature",
-      properties: { color: locationStore.userColor(segment.user) },
-      geometry: { type: "LineString", coordinates: segment.coordinates },
-    }));
+  const features: GeoJSON.Feature[] = [];
+  sampledData().segments.forEach((segment) => {
+    if (segment.coordinates.length < 2 || isHiddenUser(segment.user)) return;
+    const color = locationStore.userColor(segment.user);
+    // A culled track can leave and re-enter the viewport, so one segment can
+    // become several features.
+    const runs = activeCull
+      ? cullPath(segment.coordinates, activeCull)
+      : [segment.coordinates];
+    runs.forEach((coordinates) =>
+      features.push({
+        type: "Feature",
+        properties: { color },
+        geometry: { type: "LineString", coordinates },
+      })
+    );
+  });
   bench.measure("geojson:lines", features.length);
   return { type: "FeatureCollection", features };
 };
@@ -494,8 +569,10 @@ const getUserPointsGeoJSON = (): FeatureCollection => {
   bench.mark("geojson:userPoints");
   const features: GeoJSON.Feature[] = [];
   let count = 0;
-  sampledData().pointsByUser.forEach((coordinates, user) => {
-    if (coordinates.length === 0 || isHiddenUser(user)) return;
+  sampledData().pointsByUser.forEach((points, user) => {
+    if (points.length === 0 || isHiddenUser(user)) return;
+    const coordinates = activeCull ? cullPoints(points, activeCull) : points;
+    if (coordinates.length === 0) return;
     count += coordinates.length;
     features.push({
       type: "Feature",
@@ -509,8 +586,17 @@ const getUserPointsGeoJSON = (): FeatureCollection => {
 
 const getPoiGeoJSON = (): FeatureCollection => {
   bench.mark("geojson:poi");
+  const cull = activeCull;
   const features = locationStore.mapGeoData.pois
-    .filter((poi) => !isHiddenUser(poi.user))
+    .filter(
+      (poi) =>
+        !isHiddenUser(poi.user) &&
+        (cull === null ||
+          (poi.coordinate[0] >= cull.minLng &&
+            poi.coordinate[0] <= cull.maxLng &&
+            poi.coordinate[1] >= cull.minLat &&
+            poi.coordinate[1] <= cull.maxLat))
+    )
     .map(
       (poi): GeoJSON.Feature => ({
         type: "Feature",
@@ -591,6 +677,8 @@ const createArrowImage = (size = 24) => {
 const initSourcesAndLayers = () => {
   if (!map) return;
   if (map.getSource("history-lines")) return;
+
+  activeCull = cullBounds();
 
   const { layers } = locationStore;
   const visible = (shown: boolean) => ({
@@ -789,6 +877,10 @@ const updateGeoJSON = () => {
   if (!currentMap || !currentMap.getSource("history-lines")) return;
   bench.mark("map:updateGeoJSON");
 
+  // Decided once per update so that every source is culled to the same
+  // extent, and so `moveend` can tell what the drawn data covers.
+  activeCull = cullBounds();
+
   const { layers } = locationStore;
   const setData = (
     sourceId: string,
@@ -796,7 +888,7 @@ const updateGeoJSON = () => {
     build: () => FeatureCollection
   ) => {
     const source = currentMap.getSource(sourceId) as
-      | maplibregl.GeoJSONSource
+      | GeoJSONSource
       | undefined;
     if (!source) return;
     const data = build();
@@ -906,11 +998,20 @@ const fitView = () => {
   bench.measure("map:fitView");
 };
 
-onMounted(() => {
+onMounted(async () => {
   if (!webglSupported) return;
 
+  // Resolves immediately once `main.js`'s warm-up fetch has landed.
+  [maplibregl] = await Promise.all([
+    import("maplibre-gl").then((m) => m.default),
+    import("maplibre-gl/dist/maplibre-gl.css"),
+  ]);
+
+  // The component can be torn down while the chunk is in flight.
+  if (!mapContainer.value) return;
+
   map = new maplibregl.Map({
-    container: mapContainer.value as HTMLElement,
+    container: mapContainer.value,
     style: currentStyle.value,
     // The store guarantees numbers here.
     center: [locationStore.map.center.lng, locationStore.map.center.lat],
@@ -954,6 +1055,21 @@ onMounted(() => {
     if (zoom === lastSampledZoom) return;
     lastSampledZoom = zoom;
     updateGeoJSON();
+  });
+
+  // Culling is tied to the viewport, so redraw when the map leaves what was
+  // drawn for it. The cull bounds are padded, so an ordinary small pan stays
+  // inside them and costs nothing.
+  created.on("moveend", () => {
+    const drawn = activeCull;
+    if (drawn === null) {
+      // Everything is on screen, or culling is off. Only redraw if that has
+      // stopped being true.
+      if (cullBounds() !== null) updateGeoJSON();
+      return;
+    }
+    const view = viewportBounds();
+    if (view !== null && !containsBounds(drawn, view)) updateGeoJSON();
   });
 });
 

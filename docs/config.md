@@ -44,6 +44,7 @@ window.owntracks.config = {};
     - [`points`](#maplayerspoints)
   - [`maxNativeZoom`](#mapmaxnativezoom)
   - [`sampling`](#mapsampling)
+  - [`culling`](#mapculling)
   - [`directionArrows`](#mapdirectionarrows)
   - [`blockSoftwareWebGL`](#mapblocksoftwarewebgl)
   - [`maxPointDistance`](#mapmaxpointdistance)
@@ -307,6 +308,35 @@ never costs anything in those cases.
     minPoints: 5000,
     // How far a point may be from the simplified line, in screen pixels.
     tolerancePixels: 1.5,
+  }
+  ```
+
+### `map.culling`
+
+Restrict the geometry handed to the renderer to what is near the viewport.
+
+Sampling reduces detail when zoomed out; culling reduces extent when zoomed in.
+Without it, panning around a large history at high zoom hands the renderer every
+point of every track on every redraw, even though almost all of it is off
+screen. With it, that work is bounded by what is actually visible.
+
+A padded viewport is used so that small pans reuse the previous result, and
+culling is skipped entirely when the whole history already fits on screen, which
+is the common case for a short date range.
+
+Lines keep the vertices immediately either side of the visible run, so a track
+that crosses the viewport still enters and leaves at the correct angle rather
+than being clipped to its visible vertices.
+
+- Type: [`Object`]
+- Default:
+  ```js
+  {
+    enabled: true,
+    // Data sets smaller than this are never culled.
+    minPoints: 5000,
+    // Extra viewport-widths kept either side, so small pans need no rebuild.
+    padding: 0.5,
   }
   ```
 

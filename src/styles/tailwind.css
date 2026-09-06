@@ -52,22 +52,6 @@
     border-color: var(--color-primary) !important;
   }
 
-  /* LEAFLET POPUP OVERRIDES */
-  .leaflet-popup-content-wrapper {
-    @apply rounded-md shadow-xl border border-separator !important;
-  }
-
-  .leaflet-popup-tip {
-    @apply border border-separator !important;
-  }
-
-  .leaflet-container a.leaflet-popup-close-button {
-    @apply text-gray-400 hover:text-gray-600 p-2 !important;
-  }
-
-  .leaflet-popup--for-pin {
-    @apply mb-[45px] !important;
-  }
 }
 
 /* GLOBAL SCROLLBARS */

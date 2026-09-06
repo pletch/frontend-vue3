@@ -51,6 +51,11 @@ const DEFAULT_CONFIG: Config = {
       minPoints: 5000,
       tolerancePixels: 1.5,
     },
+    culling: {
+      enabled: true,
+      minPoints: 5000,
+      padding: 0.5,
+    },
     maxPointDistance: null,
     poiMarker: {
       fillOpacity: 0.2,

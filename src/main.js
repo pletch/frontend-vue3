@@ -9,6 +9,12 @@ import router from "@/router";
 import * as bench from "@/bench";
 import "@/styles/tailwind.css";
 
+// MapLibre is by far the largest dependency and is loaded as its own chunk so
+// it does not block the first paint. Starting the fetch here means it
+// downloads alongside the shell rather than only once the map mounts, which
+// would cost an extra round trip. Nothing awaits it; `Map.vue` does.
+import("maplibre-gl");
+
 const app = createApp(App);
 const pinia = createPinia();
 

@@ -18,7 +18,6 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("./src", import.meta.url)),
-      "leaflet$": "leaflet/dist/leaflet-src.esm.js"
     },
   },
   test: {
@@ -26,5 +25,17 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        // Framework and date handling change far less often than the app
+        // itself, so keeping them out of the entry chunk means a redeploy
+        // does not invalidate them in the browser cache. MapLibre splits
+        // itself out by virtue of being imported dynamically.
+        manualChunks: {
+          vendor: ["vue", "vue-router", "pinia", "vue-i18n", "@vueuse/core"],
+          datetime: ["moment", "vue-datepicker-next"],
+        },
+      },
+    },
   },
 });

@@ -41,6 +41,15 @@ interface Config {
       minPoints: number;
       tolerancePixels: number;
     };
+    culling: {
+      /** Whether to restrict drawn geometry to the viewport */
+      enabled: boolean;
+      /** Only cull once the history is at least this many points */
+      minPoints: number;
+      /** Extra viewport-widths kept either side, so a small pan need not
+       * rebuild */
+      padding: number;
+    };
     maxPointDistance: number | null;
     poiMarker: {
       fillOpacity: number;

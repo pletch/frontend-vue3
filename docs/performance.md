@@ -286,3 +286,102 @@ are untouched by this change and now dominate what is retained.
 
 Reducing them further would mean not handing MapLibre GeoJSON at all, which is
 a much larger change than this one.
+
+### Correction: how much they actually cost
+
+"Dominate" above overstated it, and the figure is worth correcting because it
+is the case for converting `mapGeoData` to typed arrays. Measured directly at
+250,000 points:
+
+| Retained                     | MB   |
+| ---------------------------- | ---- |
+| Whole app                    | 30.5 |
+| `Track` columnar arrays      | 9.5  |
+| `mapGeoData` coordinates     | 11.5 |
+| Map, GL, framework, the rest | ~9.5 |
+
+The coordinate pairs are 38% of the heap, not two thirds. The earlier estimate
+assumed each point's `[lng, lat]` was allocated twice, once for its segment and
+once for the per-user cloud. It is not: one array is allocated and pushed into
+both.
+
+Converting them to an interleaved `Float64Array` was measured at 3.8 MB against
+11.5 MB, so it would save about 7.7 MB of a 30.5 MB heap. It is not worth
+doing. MapLibre's GeoJSON source needs nested arrays, and the builders
+currently hand `segment.coordinates` over by reference with no copy at all.
+Storing them columnar would force materialisation on every redraw, measured at
+30.8 ms to rebuild 250,000 nested pairs - and sampling does not save you,
+because above `map.sampling.maxZoom` the sampler passes the source through
+untouched, so the full cost would land on exactly the interactive path.
+
+Trading 7.7 MB for a 3x worse redraw is the wrong direction.
+
+## After: viewport culling
+
+Sampling reduces detail when zoomed out. Above `map.sampling.maxZoom` it is
+deliberately off, and there was nothing reducing extent: every point of every
+track went to the renderer on every redraw no matter how little of it was on
+screen.
+
+`src/cull.ts` restricts the drawn geometry to a padded viewport. It runs after
+sampling rather than before, because the sampler invalidates its cache on the
+identity of the arrays it is handed, and culling upstream would give it a fresh
+array every time and force a full re-simplification on every update.
+
+Lines are not simply clipped to their visible vertices. A vertex is kept when
+an edge on either side of it touches the viewport, so a track enters and leaves
+at the correct angle, and an edge whose endpoints are both outside is tested
+with a Liang-Barsky clip so a long jump straight across the viewport is still
+drawn. A track that leaves and returns becomes several features.
+
+Measured at 117,600 points, zoom 16, over 20 live updates:
+
+| Per update                     | Without culling | With culling |
+| ------------------------------ | --------------- | ------------ |
+| Point coordinates handed over  | 117,631         | 7            |
+| Line features handed over      | 596             | 2            |
+| Main-thread time, 20 updates   | 2,760 ms        | 1,711 ms     |
+| Script time, 20 updates        | 276 ms          | 292 ms       |
+
+The script time is the honest part of the story: culling makes the JavaScript
+slightly *slower*, because deciding what to keep means walking the points,
+where handing the arrays over by reference costs nothing. The 1,049 ms that
+disappears is MapLibre's own work - tile building and buffer uploads - which is
+proportional to the coordinates it is given.
+
+These runs use software rendering, which overstates rasterisation, so the
+painting share of that saving would be smaller on a real GPU. The tile-building
+share is CPU-bound either way.
+
+Because the cull bounds are padded by half a viewport, an ordinary pan reuses
+the previous result: twelve half-screen pans provoked six rebuilds, not twelve.
+Culling is skipped entirely when the whole history already fits on screen,
+which is the common case for a short date range, and below
+`map.culling.minPoints`.
+
+## Bundle size
+
+The application shipped as a single 1.46 MB chunk that had to be downloaded and
+parsed before anything appeared. Splitting it by what actually changes and what
+is actually needed first:
+
+| Chunk                        | Raw       | gzip   | On the critical path |
+| ---------------------------- | --------- | ------ | -------------------- |
+| `index` (application)        | 133.6 kB  | 33.7 kB | yes                 |
+| `vendor` (Vue, router, i18n) | 166.0 kB  | 62.1 kB | yes                 |
+| `datetime` (moment, picker)  | 102.3 kB  | 33.5 kB | yes                 |
+| `maplibre-gl`                | 1,053.9 kB | 284.9 kB | no                 |
+
+| Bytes before first paint | Before | After |
+| ------------------------ | ------ | ----- |
+| JavaScript, gzipped      | 414 kB | 129 kB |
+| CSS, gzipped             | 17 kB  | 8 kB  |
+
+MapLibre is three quarters of the bundle on its own and is imported dynamically
+by `Map.vue`, so the shell renders without waiting for it. `main.js` starts
+that fetch as the app boots rather than leaving it until the map mounts, which
+would cost an extra round trip.
+
+Moment was the suspect before measuring and turned out not to be the problem:
+60.8 kB raw, 19.7 kB gzipped, because Vite drops its locales. Replacing it
+would save less than the measurement error on the map library.
