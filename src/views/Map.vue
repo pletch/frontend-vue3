@@ -151,7 +151,7 @@ const softwareWarningClass = [
 ].join(" ");
 
 const softwareWarningDismissClass = [
-  "shrink-0 rounded p-0.5",
+  "touch-target shrink-0 rounded p-0.5",
   "hover:bg-amber-200/70 dark:hover:bg-amber-800/70",
   "focus-visible:outline focus-visible:outline-2",
   "focus-visible:outline-offset-1",
@@ -289,7 +289,13 @@ const renderMarkers = () => {
       const popup = new maplibregl.Popup({
         offset: 25,
         className: "maplibre-popup-custom",
+        maxWidth: "min(20rem, calc(100vw - 2rem))",
       }).setDOMContent(popupContainer);
+      // The nav panel overlays the top of the map, so a popup opened beneath
+      // it would be clipped.
+      popup.on("open", () => {
+        locationStore.isMobileNavOpen = false;
+      });
 
       const marker = new maplibregl.Marker({ element: el, anchor: "center" })
         .setLngLat([location.lon, location.lat])
@@ -817,7 +823,11 @@ onMounted(() => {
     zoom: locationStore.map.zoom,
   });
 
-  map.addControl(new maplibregl.NavigationControl(), "top-left");
+  // On touch devices pinch-zoom is the natural gesture, and these buttons only
+  // take up a corner of an already small map.
+  if (!window.matchMedia("(pointer: coarse)").matches) {
+    map.addControl(new maplibregl.NavigationControl(), "top-left");
+  }
 
   if (bench.isEnabled()) {
     // The benchmark runner needs to wait for the style before measuring.
@@ -828,6 +838,10 @@ onMounted(() => {
     initSourcesAndLayers();
     updateGeoJSON();
     fitView();
+  });
+
+  map.on("click", () => {
+    locationStore.isMobileNavOpen = false;
   });
 
   map.on("load", () => {

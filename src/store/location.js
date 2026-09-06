@@ -22,6 +22,9 @@ export const useLocationStore = defineStore("location", () => {
   // showing an empty map.
   const loadError = ref(null);
   const isInformationModalVisible = ref(false);
+  // Shared so that interacting with the map can dismiss the mobile nav panel,
+  // which would otherwise cover what the user just tapped.
+  const isMobileNavOpen = ref(false);
   const frontendVersion = ref(import.meta.env.PACKAGE_VERSION);
   const recorderVersion = ref("");
   const users = ref([]);
@@ -596,6 +599,7 @@ export const useLocationStore = defineStore("location", () => {
     isLoading,
     loadError,
     isInformationModalVisible,
+    isMobileNavOpen,
     frontendVersion,
     recorderVersion,
     users,

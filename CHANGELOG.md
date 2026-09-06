@@ -41,7 +41,13 @@ Dates are in UTC.
 - Added client-side sampling of the location history (`map.sampling`). Lines are simplified and points reduced to one per grid cell at low zoom, cutting a 98k point history to 1,429 line coordinates at zoom 4 with no visible difference. Sampling is incremental, so it does not slow down live updates, and is skipped entirely for small data sets and at high zoom.
 - Added arrows along the history line showing direction of travel (`map.directionArrows`).
 - History points now shrink and lose their outline as you zoom out, so dense tracks no longer turn into a solid mass.
+- Mobile: interactive controls now meet the 44px touch target minimum. Controls keep their visual size and gain a larger hit area on coarse pointers only, so the desktop layout is unchanged.
+- Mobile: the map zoom and compass buttons are hidden on touch devices, where pinch-zoom is the natural gesture and they only take up a corner of an already small map.
+- Mobile: added safe-area handling (`viewport-fit=cover` plus insets) so the playback bar and map attribution clear the home indicator on notched phones.
+- Mobile: the route playback bar spans the available width and sits above the map attribution instead of colliding with it.
 ### Fixed
+- Mobile: opening a device popup no longer leaves it clipped behind the navigation panel; the panel now closes when a popup opens or the map is tapped.
+- Mobile: the date range is no longer truncated. It now fits down to 320px-wide screens, verified at 320, 360, 390 and 430px.
 - Requests to an unreachable recorder no longer crash the page. `fetchApi()` swallowed network errors and returned `undefined`, and every caller then dereferenced `response.json()`, producing an unhandled `TypeError` and a blank map. Failures now surface as an `ApiError` and are reported in the UI.
 - Live location updates no longer cost time proportional to the entire loaded history. The history is held in a `shallowRef` with explicit invalidation instead of deep reactivity, cutting a live update at 100k points from ~1015 ms to ~40 ms and a full load from ~1281 ms to ~176 ms.
 - Live updates are no longer silently discarded. `updateGeoJSON()` guarded on `map.isStyleLoaded()`, which reports false whenever MapLibre has pending source or tile work, so after a large load every subsequent update did the full derive work and then threw it away, leaving the map stale.

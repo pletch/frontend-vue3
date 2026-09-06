@@ -69,5 +69,8 @@
   "Software rendering: performance will be limited.": "Software rendering: performance will be limited.",
   "Dismiss": "Dismiss",
   "Could not load data": "Could not load data",
-  "Retry": "Retry"
+  "Retry": "Retry",
+  "Play": "Play",
+  "Pause": "Pause",
+  "Playback position": "Playback position"
 }

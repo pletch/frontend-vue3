@@ -76,6 +76,19 @@
 ::-webkit-scrollbar-thumb:hover { @apply bg-gray-400; }
 /* Fix vue-datepicker-next overflow on mobile screens */
 @media (max-width: 768px) {
+  /* The full range reads e.g. "2026-08-06 00:00 ~ 2026-09-06 23:59", which
+     does not fit at the default size on a phone and was being truncated. */
+  /* The component sets a fixed width, which leaves the range string a few
+     pixels short of fitting on a phone. */
+  .mx-datepicker,
+  .mx-datepicker-range {
+    width: 100% !important;
+  }
+  .mx-input {
+    font-size: 0.8125rem !important;
+    padding-left: 0.375rem !important;
+    padding-right: 1.375rem !important;
+  }
   .mx-datepicker-popup {
     max-width: 95vw !important;
     max-height: 80vh !important;
@@ -100,5 +113,69 @@
   }
   .mx-time-columns {
     height: 200px !important;
+  }
+}
+
+/* TOUCH TARGETS
+ *
+ * Pointer-based interfaces are fine with small controls; fingers are not.
+ * Rather than enlarging every control (which would change the desktop layout),
+ * expand the hit area with a pseudo-element on coarse pointers only, so the
+ * control looks the same but is comfortably tappable.
+ *
+ * https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html
+ */
+@media (pointer: coarse) {
+  .touch-target {
+    position: relative;
+  }
+  .touch-target::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+  }
+
+  /* Controls that carry their own sizing can simply grow. */
+  .form-select,
+  .mx-input,
+  .btn-primary,
+  .btn-outline {
+    min-height: 44px !important;
+  }
+
+  /* MapLibre's own controls and popup close button. */
+  .maplibregl-ctrl button,
+  .maplibregl-popup-close-button {
+    min-width: 44px !important;
+    min-height: 44px !important;
+  }
+}
+
+/* SAFE AREAS
+ *
+ * With viewport-fit=cover the page extends under the notch and home
+ * indicator, so anything pinned to an edge needs to be inset explicitly.
+ */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.safe-inset-bottom {
+  bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));
+}
+.maplibregl-ctrl-bottom-right,
+.maplibregl-ctrl-bottom-left {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Very narrow phones (e.g. a 320px iPhone SE) need one more step down before
+   the date range fits. */
+@media (max-width: 360px) {
+  .mx-input {
+    font-size: 0.6875rem !important;
+    padding-right: 1.125rem !important;
   }
 }

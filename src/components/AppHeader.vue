@@ -4,7 +4,7 @@
   >
     <div v-if="isSmallScreen" class="flex items-center px-2">
       <button
-        class="p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white text-white"
+        class="touch-target p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white text-white"
         type="button"
         @click="showMobileNav = !showMobileNav"
       >
@@ -63,10 +63,26 @@
           </label>
         </DropdownButton>
       </div>
-      <div class="flex items-center space-x-1 px-2">
-        <CalendarIcon class="w-5 h-5 mr-1" aria-hidden="true" role="img" />
+      <div
+        :class="[
+          'flex items-center space-x-1',
+          isSmallScreen ? 'w-full px-0' : 'px-2',
+        ]"
+      >
+        <!-- The picker's own input carries a calendar icon, so on small
+             screens this one only takes width from the date range. -->
+        <CalendarIcon
+          v-if="!isSmallScreen"
+          class="w-5 h-5 mr-1 shrink-0"
+          aria-hidden="true"
+          role="img"
+        />
         <button
-          class="p-1 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          :class="[
+            'touch-target hover:bg-white/20 rounded-full transition-colors',
+            'focus:outline-none focus-visible:ring-2 focus-visible:ring-white',
+            isSmallScreen ? 'p-0' : 'p-1',
+          ]"
           type="button"
           :title="$t('Shift backward')"
           @click="shiftDateRange(-1)"
@@ -74,6 +90,7 @@
           <ChevronLeftIcon class="w-4 h-4" />
         </button>
         <DatePicker
+          :class="isSmallScreen ? 'flex-1 min-w-0' : ''"
           v-model:value="dateTimeRange"
           type="datetime"
           :format="$t('date_time_format')"
@@ -100,7 +117,11 @@
           </template>
         </DatePicker>
         <button
-          class="p-1 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+          :class="[
+            'touch-target hover:bg-white/20 rounded-full transition-colors',
+            'focus:outline-none focus-visible:ring-2 focus-visible:ring-white',
+            isSmallScreen ? 'p-0' : 'p-1',
+          ]"
           type="button"
           :title="$t('Shift forward')"
           @click="shiftDateRange(1)"
@@ -110,7 +131,7 @@
       </div>
       <div class="flex items-center px-1">
         <button
-          class="p-1.5 border border-white hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white text-white"
+          class="touch-target p-1.5 border border-white hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white text-white"
           type="button"
           :title="
             locationStore.realTimeUpdatesEnabled
@@ -199,7 +220,7 @@
       </div>
       <div class="flex items-center px-1">
         <button
-          class="p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white text-white"
+          class="touch-target p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white text-white"
           type="button"
           :title="isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'"
           @click="toggleDark()"
@@ -215,7 +236,7 @@
       </div>
       <div class="flex items-center px-2">
         <button
-          class="p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white text-white"
+          class="touch-target p-2 hover:bg-white/20 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white text-white"
           type="button"
           :title="$t('Information')"
           @click="locationStore.isInformationModalVisible = true"
@@ -276,7 +297,10 @@ const layerSettingsOptions = [
   { layer: "hideStale", label: "Hide stale markers (> 2 days)" },
 ];
 
-const showMobileNav = ref(false);
+const showMobileNav = computed({
+  get: () => locationStore.isMobileNavOpen,
+  set: (value) => (locationStore.isMobileNavOpen = value),
+});
 const showTimeRangePanel = ref(false);
 
 const shortcuts = computed(() => [

@@ -53,7 +53,7 @@ const retryClass = [
 ].join(" ");
 
 const dismissClass = [
-  "shrink-0 self-start rounded p-0.5",
+  "touch-target shrink-0 self-start rounded p-0.5",
   "hover:bg-red-200/70 dark:hover:bg-red-800/70",
   "focus-visible:outline focus-visible:outline-2",
   "focus-visible:outline-offset-1",

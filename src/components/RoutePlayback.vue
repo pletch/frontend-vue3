@@ -1,22 +1,22 @@
 <template>
-  <div
-    v-if="historyPoints.length > 0"
-    class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white dark:bg-gray-800 rounded-full shadow-xl border border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center space-x-4 z-[1000]"
-  >
+  <div v-if="historyPoints.length > 0" :class="containerClass">
     <button
       @click="togglePlayback"
-      class="text-primary hover:text-blue-600 focus:outline-none transition-colors"
+      class="touch-target shrink-0 text-primary hover:text-blue-600 focus:outline-none transition-colors"
+      type="button"
+      :title="isPlaying ? $t('Pause') : $t('Play')"
     >
       <PlayIcon v-if="!isPlaying" class="w-6 h-6" />
       <PauseIcon v-else class="w-6 h-6" />
     </button>
-    <div class="flex flex-col w-64">
+    <div class="flex flex-col flex-1 min-w-0 sm:w-64 sm:flex-none">
       <input
         type="range"
         :min="0"
         :max="historyPoints.length - 1"
         v-model.number="currentIndex"
-        class="w-full"
+        class="w-full h-6 accent-primary"
+        :aria-label="$t('Playback position')"
         @input="pausePlayback"
       />
       <span
@@ -35,6 +35,17 @@ import { useLocationStore } from "@/store/location";
 import { PlayIcon, PauseIcon } from "lucide-vue-next";
 
 const locationStore = useLocationStore();
+
+// Sits above the map attribution and clear of the home indicator on phones,
+// and spans the width on small screens rather than using a fixed slider width.
+const containerClass = [
+  "fixed safe-inset-bottom left-1/2 -translate-x-1/2 z-[1000]",
+  "w-[calc(100%-1.5rem)] max-w-md sm:w-auto",
+  "flex items-center gap-3 sm:gap-4",
+  "rounded-full border px-4 sm:px-6 py-3 shadow-xl",
+  "bg-white border-gray-200",
+  "dark:bg-gray-800 dark:border-gray-700",
+].join(" ");
 const isPlaying = ref(false);
 const currentIndex = ref(0);
 let interval = null;
