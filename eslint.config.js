@@ -4,6 +4,7 @@ import eslintPluginVue from "eslint-plugin-vue";
 import eslintPluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 import vueParser from "vue-eslint-parser";
 import { FlatCompat } from "@eslint/eslintrc";
+import globals from "globals";
 
 const eslintrc = new FlatCompat({
   baseDirectory: dirname(fileURLToPath(import.meta.url)),
@@ -15,11 +16,18 @@ export default [
   {
     languageOptions: {
       parser: vueParser,
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
     },
     plugins: {
       vue: eslintPluginVue,
     },
     rules: {
+      // Catches an identifier that was never imported. The build happily
+      // emits those and they only fail at runtime.
+      "no-undef": "error",
       "no-console": process.env.NODE_ENV === "production" ? "error" : "warn",
       "no-debugger": process.env.NODE_ENV === "production" ? "error" : "warn",
       "max-len": [

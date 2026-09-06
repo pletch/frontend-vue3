@@ -38,6 +38,9 @@ Dates are in UTC.
 - Added a connection error banner with a retry action, shown when the recorder cannot be reached.
 - History points and the heatmap now share one map source and are drawn from a single `MultiPoint` feature per user rather than one feature per location, and all map data is derived in a single pass over the history. Building the map's GeoJSON at 100k points went from 29 ms to under 0.1 ms.
 - Live location updates are now applied incrementally rather than re-deriving the whole history, making the cost of an update independent of how much history is loaded (0.6 ms at 100k points, against 1015 ms originally).
+- Added client-side sampling of the location history (`map.sampling`). Lines are simplified and points reduced to one per grid cell at low zoom, cutting a 98k point history to 1,429 line coordinates at zoom 4 with no visible difference. Sampling is incremental, so it does not slow down live updates, and is skipped entirely for small data sets and at high zoom.
+- Added arrows along the history line showing direction of travel (`map.directionArrows`).
+- History points now shrink and lose their outline as you zoom out, so dense tracks no longer turn into a solid mass.
 ### Fixed
 - Requests to an unreachable recorder no longer crash the page. `fetchApi()` swallowed network errors and returned `undefined`, and every caller then dereferenced `response.json()`, producing an unhandled `TypeError` and a blank map. Failures now surface as an `ApiError` and are reported in the UI.
 - Live location updates no longer cost time proportional to the entire loaded history. The history is held in a `shallowRef` with explicit invalidation instead of deep reactivity, cutting a live update at 100k points from ~1015 ms to ~40 ms and a full load from ~1281 ms to ~176 ms.

@@ -56,6 +56,9 @@ window.owntracks.config = {};
     - [`poi`](#maplayerspoi)
     - [`points`](#maplayerspoints)
   - [`maxNativeZoom`](#mapmaxnativezoom)
+  - [`sampling`](#mapsampling)
+  - [`directionArrows`](#mapdirectionarrows)
+  - [`blockSoftwareWebGL`](#mapblocksoftwarewebgl)
   - [`maxPointDistance`](#mapmaxpointdistance)
   - [`maxZoom`](#mapmaxzoom)
   - [`poiMarker`](#mappoimarker)
@@ -356,6 +359,48 @@ the configured tileserver supports.
 
 - Type: [`Number`]
 - Default: `19`
+
+### `map.sampling`
+
+Client-side sampling of the location history, so that large data sets stay
+responsive at low zoom levels. Points that would land on the same pixel are
+dropped before being handed to the renderer, which materially reduces GPU work
+and battery use on mobile devices.
+
+Lines are simplified with Douglas-Peucker and the point/heatmap layers are
+reduced to one point per grid cell. Sampling is skipped entirely for small data
+sets and when zoomed in far enough that individual points are visible, so it
+never costs anything in those cases.
+
+- Type: [`Object`]
+- Default:
+  ```js
+  {
+    enabled: true,
+    // Above this zoom level, draw every point.
+    maxZoom: 15,
+    // Data sets smaller than this are never sampled.
+    minPoints: 5000,
+    // How far a point may be from the simplified line, in screen pixels.
+    tolerancePixels: 1.5,
+  }
+  ```
+
+### `map.directionArrows`
+
+Whether to draw arrows along the history line showing the direction of travel.
+
+- Type: [`Boolean`]
+- Default: `true`
+
+### `map.blockSoftwareWebGL`
+
+Whether to refuse to render the map when only a software WebGL renderer is
+available. Software rendering is slow but usable, so by default the map is
+shown with a dismissible warning instead.
+
+- Type: [`Boolean`]
+- Default: `false`
 
 ### `map.maxPointDistance`
 

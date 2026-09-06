@@ -82,6 +82,8 @@ import {
   humanReadableAltitude,
 } from "@/util";
 import * as bench from "@/bench";
+import { toleranceForZoom } from "@/simplify";
+import { createSampler } from "@/sampler";
 import LDeviceLocationPopup from "@/components/LDeviceLocationPopup.vue";
 import {
   PersonStandingIcon,
@@ -382,13 +384,54 @@ const renderPlaybackMarker = () => {
   }
 };
 
+const sampler = createSampler();
+
+/**
+ * Current sampling tolerance in degrees, or 0 when sampling is off.
+ *
+ * Sampling is skipped for small data sets, where it costs more than it saves,
+ * and when zoomed in far enough that points are individually visible.
+ *
+ * @returns {Number} Tolerance in degrees
+ */
+const currentTolerance = () => {
+  const sampling = config.map.sampling || {};
+  if (!map || sampling.enabled === false) return 0;
+
+  const zoom = map.getZoom();
+  if (zoom >= (sampling.maxZoom ?? 15)) return 0;
+  if (locationStore.mapGeoData.count < (sampling.minPoints ?? 5000)) return 0;
+
+  return toleranceForZoom(zoom, sampling.tolerancePixels ?? 1.5);
+};
+
+/**
+ * The current data, sampled for the current zoom level.
+ *
+ * The sampler extends its previous result rather than re-simplifying
+ * everything, so a live update stays proportional to what arrived rather than
+ * to the size of the history.
+ *
+ * @returns {Object} `segments` and `pointsByUser`, sampled where worthwhile
+ */
+const sampledData = () => {
+  const data = locationStore.mapGeoData;
+  const tolerance = currentTolerance();
+  bench.mark("map:sample");
+  const result = sampler.sample(data, tolerance);
+  bench.measure("map:sample", data.count);
+  return result;
+};
+
 const getLinesGeoJSON = () => {
   bench.mark("geojson:lines");
-  const features = locationStore.mapGeoData.segments.map((segment) => ({
-    type: "Feature",
-    properties: { color: getUserColor(segment.user) },
-    geometry: { type: "LineString", coordinates: segment.coordinates },
-  }));
+  const features = sampledData()
+    .segments.filter((segment) => segment.coordinates.length > 1)
+    .map((segment) => ({
+      type: "Feature",
+      properties: { color: getUserColor(segment.user) },
+      geometry: { type: "LineString", coordinates: segment.coordinates },
+    }));
   bench.measure("geojson:lines", features.length);
   return { type: "FeatureCollection", features };
 };
@@ -404,7 +447,7 @@ const getUserPointsGeoJSON = () => {
   bench.mark("geojson:userPoints");
   const features = [];
   let count = 0;
-  locationStore.mapGeoData.pointsByUser.forEach((coordinates, user) => {
+  sampledData().pointsByUser.forEach((coordinates, user) => {
     if (coordinates.length === 0) return;
     count += coordinates.length;
     features.push({
@@ -458,12 +501,49 @@ const getAccuracyCirclesGeoJSON = () => {
   return { type: "FeatureCollection", features };
 };
 
+/**
+ * Build a small triangular arrow as an SDF image.
+ *
+ * Drawing the arrow as an image rather than a text glyph avoids depending on
+ * which characters the map style's fonts happen to provide. As an SDF, its
+ * colour can be driven from the feature's own `color` property.
+ *
+ * @param {Number} [size] Image size in pixels
+ * @returns {Object} Image in the shape `map.addImage` expects
+ */
+const createArrowImage = (size = 24) => {
+  const data = new Uint8Array(size * size * 4);
+  const half = size / 2;
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      // A triangle pointing along +x, which is the direction of travel once
+      // MapLibre aligns the symbol to the line.
+      const along = x / size;
+      const across = Math.abs(y - half) / half;
+      const inside = along < 0.85 && across <= 1 - along * 1.05;
+      const offset = (y * size + x) * 4;
+      data[offset] = 255;
+      data[offset + 1] = 255;
+      data[offset + 2] = 255;
+      data[offset + 3] = inside ? 255 : 0;
+    }
+  }
+
+  return { width: size, height: size, data };
+};
+
 const initSourcesAndLayers = () => {
   if (!map) return;
   if (map.getSource("history-lines")) return;
 
   const { layers } = locationStore;
   const visible = (shown) => ({ visibility: shown ? "visible" : "none" });
+
+  // Images do not survive a style change, so this runs alongside the sources.
+  if (!map.hasImage("direction-arrow")) {
+    map.addImage("direction-arrow", createArrowImage(), { sdf: true });
+  }
 
   // Track lines.
   map.addSource("history-lines", { type: "geojson", data: getLinesGeoJSON() });
@@ -480,6 +560,28 @@ const initSourcesAndLayers = () => {
       "line-color": ["get", "color"],
       "line-width": config.map.polyline?.weight || 3,
       "line-opacity": config.map.polyline?.opacity || 0.8,
+    },
+  });
+
+  // Arrows showing the direction of travel, riding on the line source.
+  map.addLayer({
+    id: "history-arrows-layer",
+    type: "symbol",
+    source: "history-lines",
+    layout: {
+      ...visible(layers.line && config.map.directionArrows),
+      "symbol-placement": "line",
+      "symbol-spacing": 100,
+      "icon-image": "direction-arrow",
+      "icon-size": 0.45,
+      "icon-rotation-alignment": "map",
+      "icon-allow-overlap": true,
+      "icon-ignore-placement": true,
+    },
+    paint: {
+      "icon-color": ["get", "color"],
+      "icon-halo-color": "#ffffff",
+      "icon-halo-width": 0.6,
     },
   });
 
@@ -552,9 +654,31 @@ const initSourcesAndLayers = () => {
     source: "history-points",
     layout: visible(layers.points),
     paint: {
-      "circle-radius": config.map.circleMarker?.radius || 4,
+      // Dense tracks turn into a solid mass at low zoom when every point is
+      // drawn at full size with a white outline, so both shrink as you zoom
+      // out and the outline disappears entirely.
+      "circle-radius": [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        6,
+        1.5,
+        12,
+        2.5,
+        16,
+        config.map.circleMarker?.radius || 4,
+      ],
       "circle-color": ["get", "color"],
-      "circle-stroke-width": 1,
+      "circle-opacity": ["interpolate", ["linear"], ["zoom"], 6, 0.55, 14, 1],
+      "circle-stroke-width": [
+        "interpolate",
+        ["linear"],
+        ["zoom"],
+        11,
+        0,
+        14,
+        1,
+      ],
       "circle-stroke-color": "#ffffff",
     },
   });
@@ -622,6 +746,7 @@ const updateGeoJSON = () => {
 
   const visibility = {
     "history-lines-layer": layers.line,
+    "history-arrows-layer": layers.line && config.map.directionArrows,
     "history-heatmap-layer": layers.heatmap,
     "history-points-layer": layers.points,
     "history-poi-layer": layers.poi,
@@ -710,6 +835,16 @@ onMounted(() => {
     initSourcesAndLayers();
     updateGeoJSON();
     fitView();
+  });
+
+  // Sampling is tied to the zoom level, so redraw when it changes enough to
+  // change the tolerance.
+  let lastSampledZoom = null;
+  map.on("zoomend", () => {
+    const zoom = Math.floor(map.getZoom());
+    if (zoom === lastSampledZoom) return;
+    lastSampledZoom = zoom;
+    updateGeoJSON();
   });
 });
 

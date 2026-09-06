@@ -43,6 +43,7 @@ interface Config {
           radius: number;
         };
         blockSoftwareWebGL: boolean;
+        directionArrows: boolean;
         layers: {
           heatmap: boolean;
           last: boolean;
@@ -51,6 +52,12 @@ interface Config {
           points: boolean;
         };
         maxNativeZoom: number;
+        sampling: {
+          enabled: boolean;
+          maxZoom: number;
+          minPoints: number;
+          tolerancePixels: number;
+        };
         maxPointDistance: number | null;
         maxZoom: number;
         poiMarker: {

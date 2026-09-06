@@ -197,3 +197,42 @@ under both accuracy filtering and line splitting.
 
 Remaining: client-side sampling at low zoom, and a streaming decode with
 byte-level progress for the initial fetch.
+
+## After: client-side sampling
+
+At low zoom most points land on the same pixel, so drawing all of them costs
+GPU time and battery without changing what the user sees. Lines are now
+simplified with Douglas-Peucker and the point and heatmap layers reduced to one
+point per grid cell, with the tolerance derived from the current zoom.
+
+Sampling is skipped for data sets below `map.sampling.minPoints` and above
+`map.sampling.maxZoom`, so it never costs anything where it would not help.
+
+Coordinates handed to the renderer, from a 98,000 point history:
+
+| Zoom | Line coordinates | Point coordinates |
+| ---- | ---------------- | ----------------- |
+| 4    | 1,429            | 2,602             |
+| 8    | 6,416            | 43,156            |
+| 12   | 40,444           | 95,166            |
+| 16   | 98,000           | 98,000            |
+
+At zoom 7.5 the rendered track is visually indistinguishable from the
+unsampled one while using 2,975 coordinates instead of 58,800.
+
+### Sampling had to be incremental too
+
+A naive implementation re-simplified everything whenever the data changed,
+which cost 9.1 ms per live update at 100k points and undid the incremental
+update path entirely. The sampler now extends its previous result with only
+the points that have arrived since:
+
+|                         | Naive    | Incremental |
+| ----------------------- | -------- | ----------- |
+| `map:sample` per update | 9.075 ms | 0.042 ms    |
+| Live update at zoom 8   | 10.67 ms | 1.52 ms     |
+
+Because the distance rule applied to new points is weaker than a full
+Douglas-Peucker pass, a segment's retained points are periodically
+re-simplified. That runs over the reduced set rather than the source data, so
+it stays cheap while bounding how far the incremental result can drift.

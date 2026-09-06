@@ -52,6 +52,7 @@ const DEFAULT_CONFIG = {
       radius: 25,
     },
     blockSoftwareWebGL: false,
+    directionArrows: true,
     layers: {
       heatmap: false,
       last: true,
@@ -60,6 +61,12 @@ const DEFAULT_CONFIG = {
       points: false,
     },
     maxNativeZoom: 19,
+    sampling: {
+      enabled: true,
+      maxZoom: 15,
+      minPoints: 5000,
+      tolerancePixels: 1.5,
+    },
     maxPointDistance: null,
     maxZoom: 21,
     poiMarker: {
