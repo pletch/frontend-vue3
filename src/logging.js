@@ -32,7 +32,7 @@ function getLogStyle(level) {
  * and taking the `verbose` config option into account.
  *
  * @param {String} label Log message label, useful for filtering
- * @param {String|LogMessageFunction} message Log message
+ * @param {unknown} message Log message, or a function returning one
  * @param {String} [level] Log level, use `logLevels` constants
  */
 export function log(label, message, level = LOG_INFO) {

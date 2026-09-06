@@ -12,14 +12,7 @@
  */
 
 import { simplifyPath, decimatePoints } from "@/simplify";
-import type { Coordinate } from "@/simplify";
-
-/** One line segment of a device's track. */
-export interface Segment {
-  user: User;
-  device: Device;
-  coordinates: Coordinate[];
-}
+import type { Coordinate, Segment } from "@/geo";
 
 /** The subset of the store's derived data that sampling operates on. */
 export interface SampleInput {

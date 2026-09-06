@@ -1,6 +1,17 @@
 import config from "@/config";
 import { log, LOG_WARNING, LOG_ERROR } from "@/logging";
-import { getApiUrl, getLocationHistoryCount } from "@/util";
+import { getApiUrl } from "@/util";
+import type { RawLocationHistory } from "@/track";
+
+/** Progress reported as a response body arrives. Both counts are deltas. */
+export interface FetchProgress {
+  received: number;
+  total: number;
+  reliable: boolean;
+}
+
+/** Called as bytes arrive. */
+export type ProgressCallback = (progress: FetchProgress) => void;
 
 /** An API request that could not be completed. */
 export class ApiError extends Error {
@@ -11,7 +22,18 @@ export class ApiError extends Error {
    * @param {Number} [details.status] HTTP status, if a response was received
    * @param {Error} [details.cause] Underlying error, if any
    */
-  constructor(message, { url, status, cause } = {}) {
+  url?: string;
+  status?: number;
+  override cause?: unknown;
+
+  constructor(
+    message: string,
+    {
+      url,
+      status,
+      cause,
+    }: { url?: string; status?: number; cause?: unknown } = {}
+  ) {
     super(message);
     this.name = "ApiError";
     this.url = url;
@@ -26,13 +48,17 @@ export class ApiError extends Error {
  * Rejects rather than resolving to `undefined` when the request fails, so that
  * callers cannot accidentally treat a failure as a response.
  *
- * @param {String} path API resource path
- * @param {Object} [params] Query parameters
- * @param {Object} [fetchOptions]
+ * @param path API resource path
+ * @param [params] Query parameters
+ * @param [fetchOptions]
  *   fetch() options (merged with config.api.fetchOptions)
- * @returns {Promise<Response>} Response returned by the fetch call
+ * @returns Response returned by the fetch call
  */
-function fetchApi(path, params = {}, fetchOptions = {}) {
+function fetchApi(
+  path: string,
+  params: Record<string, string> = {},
+  fetchOptions: RequestInit = {}
+): Promise<Response> {
   const url = getApiUrl(path);
   Object.keys(params).forEach((key) => url.searchParams.set(key, params[key]));
   log("HTTP", `GET ${url.href}`);
@@ -49,19 +75,25 @@ function fetchApi(path, params = {}, fetchOptions = {}) {
  * an `ApiError`. Aborts are re-thrown unchanged so that callers can recognise
  * them by `error.name`.
  *
- * @param {String} path API resource path
- * @param {Object} [params] Query parameters
- * @param {Object} [fetchOptions] fetch() options
- * @param {ProgressCallback} [onProgress] Called as bytes arrive
- * @returns {Promise<*>} Decoded JSON body
+ * @param path API resource path
+ * @param [params] Query parameters
+ * @param [fetchOptions] fetch() options
+ * @param [onProgress] Called as bytes arrive
+ * @returns Decoded JSON body
  */
-async function fetchJson(path, params = {}, fetchOptions = {}, onProgress) {
+async function fetchJson(
+  path: string,
+  params: Record<string, string> = {},
+  fetchOptions: RequestInit = {},
+  onProgress?: ProgressCallback
+): Promise<any> {
   const url = getApiUrl(path).href;
   let response;
 
   try {
     response = await fetchApi(path, params, fetchOptions);
-  } catch (error) {
+  } catch (caught) {
+    const error = caught as Error;
     if (error.name === "AbortError") {
       log("HTTP", `GET ${url} - Request was aborted`, LOG_WARNING);
       throw error;
@@ -85,7 +117,8 @@ async function fetchJson(path, params = {}, fetchOptions = {}, onProgress) {
     return onProgress
       ? await readJsonWithProgress(response, onProgress)
       : await response.json();
-  } catch (error) {
+  } catch (caught) {
+    const error = caught as Error;
     if (error.name === "AbortError") {
       throw error;
     }
@@ -111,11 +144,14 @@ async function fetchJson(path, params = {}, fetchOptions = {}, onProgress) {
  * unknown once it is exceeded, and the UI falls back to showing the amount
  * received.
  *
- * @param {Response} response Response to read
- * @param {ProgressCallback} onProgress Called with deltas as bytes arrive
- * @returns {Promise<*>} Decoded JSON body
+ * @param response Response to read
+ * @param onProgress Called with deltas as bytes arrive
+ * @returns Decoded JSON body
  */
-async function readJsonWithProgress(response, onProgress) {
+async function readJsonWithProgress(
+  response: Response,
+  onProgress: ProgressCallback
+): Promise<any> {
   if (!response.body || typeof response.body.getReader !== "function") {
     // No streaming support: fall back to a plain read.
     return response.json();
@@ -163,9 +199,9 @@ async function readJsonWithProgress(response, onProgress) {
 /**
  * Get the recorder's version.
  *
- * @returns {Promise<String>} Version
+ * @returns Version
  */
-export async function getVersion() {
+export async function getVersion(): Promise<string> {
   const json = await fetchJson("/api/0/version");
   const version = json.version;
   log("API", () => `[getVersion] ${version}`);
@@ -175,9 +211,9 @@ export async function getVersion() {
 /**
  * Get all users.
  *
- * @returns {Promise<User[]>} Array of usernames
+ * @returns Array of usernames
  */
-export async function getUsers() {
+export async function getUsers(): Promise<User[]> {
   const json = await fetchJson("/api/0/list");
   const users = json.results;
   log("API", () => `[getUsers] Fetched ${users.length} users`);
@@ -187,12 +223,14 @@ export async function getUsers() {
 /**
  * Get all devices for the provided users.
  *
- * @param {User[]} users Array of usernames
+ * @param users Array of usernames
  * @returns {Promise<{User: Device[]}>}
  *   Object mapping each username to an array of device names
  */
-export async function getDevices(users) {
-  const devices = {};
+export async function getDevices(
+  users: User[]
+): Promise<Record<User, Device[]>> {
+  const devices: Record<User, Device[]> = {};
   await Promise.all(
     users.map(async (user) => {
       const json = await fetchJson(`/api/0/list`, { user });
@@ -215,12 +253,15 @@ export async function getDevices(users) {
 /**
  * Get last locations for a specific or all user/device.
  *
- * @param {User} [user] Get last locations of all devices from this user
- * @param {Device} [device] Get last location of specific device
- * @returns {Promise<OTLocation[]>} Array of last location objects
+ * @param [user] Get last locations of all devices from this user
+ * @param [device] Get last location of specific device
+ * @returns Array of last location objects
  */
-export async function getLastLocations(user, device) {
-  const params = {};
+export async function getLastLocations(
+  user?: User | null,
+  device?: Device | null
+): Promise<OTLocation[]> {
+  const params: Record<string, string> = {};
   if (user) {
     params["user"] = user;
     if (device) {
@@ -238,22 +279,22 @@ export async function getLastLocations(user, device) {
 /**
  * Get the location history of a specific user/device.
  *
- * @param {User} user Username
- * @param {Device} device Device name
- * @param {String} start Start date and time in UTC
- * @param {String} end End date and time in UTC
- * @param {Object} [fetchOptions] fetch() options
- * @param {ProgressCallback} [onProgress] Called as bytes arrive
- * @returns {Promise<OTLocation[]>} Array of location history objects
+ * @param user Username
+ * @param device Device name
+ * @param start Start date and time in UTC
+ * @param end End date and time in UTC
+ * @param [fetchOptions] fetch() options
+ * @param [onProgress] Called as bytes arrive
+ * @returns Array of location history objects
  */
 export async function getUserDeviceLocationHistory(
-  user,
-  device,
-  start,
-  end,
-  fetchOptions,
-  onProgress
-) {
+  user: User,
+  device: Device,
+  start: string,
+  end: string,
+  fetchOptions?: RequestInit,
+  onProgress?: ProgressCallback
+): Promise<OTLocation[]> {
   const json = await fetchJson(
     "/api/0/locations",
     {
@@ -270,7 +311,9 @@ export async function getUserDeviceLocationHistory(
   // drawn in the wrong order. The recorder API simply returns entries in the
   // same order in which they are in each *.rec file.
   // See https://github.com/owntracks/frontend/issues/67.
-  const userDeviceLocationHistory = json.data.sort((a, b) => a.tst - b.tst);
+  const userDeviceLocationHistory: OTLocation[] = json.data.sort(
+    (a: OTLocation, b: OTLocation) => a.tst - b.tst
+  );
   log(
     "API",
     () =>
@@ -286,20 +329,20 @@ export async function getUserDeviceLocationHistory(
  *
  * @param {{User: Device[]}} devices
  *   Devices of which the history should be fetched
- * @param {String} start Start date and time in UTC
- * @param {String} end End date and time in UTC
- * @param {Object} [fetchOptions] fetch() options
- * @param {ProgressCallback} [onProgress] Called as bytes arrive
- * @returns {Promise<LocationHistory>} Location history
+ * @param start Start date and time in UTC
+ * @param end End date and time in UTC
+ * @param [fetchOptions] fetch() options
+ * @param [onProgress] Called as bytes arrive
+ * @returns Location history
  */
 export async function getLocationHistory(
-  devices,
-  start,
-  end,
-  fetchOptions,
-  onProgress
-) {
-  const locationHistory = {};
+  devices: Record<User, Device[]>,
+  start: string,
+  end: string,
+  fetchOptions?: RequestInit,
+  onProgress?: ProgressCallback
+): Promise<RawLocationHistory> {
+  const locationHistory: RawLocationHistory = {};
   await Promise.all(
     Object.keys(devices).map(async (user) => {
       locationHistory[user] = {};
@@ -318,7 +361,9 @@ export async function getLocationHistory(
     })
   );
   log("API", () => {
-    const locationHistoryCount = getLocationHistoryCount(locationHistory);
+    const locationHistoryCount = Object.values(locationHistory)
+      .flatMap((byDevice) => Object.values(byDevice))
+      .reduce((total, locations) => total + locations.length, 0);
     return (
       "[getLocationHistory] Fetched " +
       `${locationHistoryCount} locations in total`
@@ -331,12 +376,15 @@ export async function getLocationHistory(
  * Connect to the WebSocket API, reconnect when necessary and handle received
  * messages.
  *
- * @param {WebSocketLocationCallback} [callback] Callback for location messages
+ * @param [callback] Callback for location messages
  */
-export async function connectWebsocket(callback, attempt = 0) {
-  let url = getApiUrl("/ws/last");
-  url.protocol = url.protocol.replace("http", "ws");
-  url = url.href;
+export async function connectWebsocket(
+  callback?: WebSocketLocationCallback,
+  attempt = 0
+): Promise<void> {
+  const wsUrl = getApiUrl("/ws/last");
+  wsUrl.protocol = wsUrl.protocol.replace("http", "ws");
+  const url = wsUrl.href;
   const ws = new WebSocket(url);
   log("WS", `Connecting to ${url}`);
 

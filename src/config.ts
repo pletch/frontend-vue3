@@ -7,7 +7,7 @@ const startDateTime = new Date(endDateTime);
 startDateTime.setMonth(startDateTime.getMonth() - 1);
 startDateTime.setHours(0, 0, 0, 0);
 
-const DEFAULT_CONFIG = {
+const DEFAULT_CONFIG: Config = {
   api: {
     baseUrl: `${window.location.protocol}//${window.location.host}`,
     fetchOptions: {},
@@ -113,4 +113,9 @@ const DEFAULT_CONFIG = {
 // needs to contain actual changes, not all default values - and these
 // stay up-to-date automatically.
 // There might not be a user-defined config, default to an empty object.
-export default deepmerge(DEFAULT_CONFIG, (window.owntracks || {}).config || {});
+// The user config is a partial override of the defaults, so the merged result
+// is a complete `Config` even though the override is not.
+export default deepmerge(
+  DEFAULT_CONFIG,
+  (window.owntracks || {}).config || {}
+) as Config;

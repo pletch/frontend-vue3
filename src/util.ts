@@ -3,6 +3,8 @@ import moment from "moment";
 import config from "@/config";
 import { DATE_TIME_FORMAT, EARTH_RADIUS_IN_KM } from "@/constants";
 import i18n from "@/i18n";
+import type { LatLng } from "@/geo";
+import type { TrackHistory } from "@/track";
 
 // 1 km/h in mph
 const KMH_TO_MPH = 0.621371;
@@ -17,9 +19,9 @@ const METERS_PER_MILE = 1609.344;
  * Explicit `config.units` wins; otherwise fall back to a locale-based guess
  * (en-US is the only locale that defaults to imperial).
  *
- * @returns {"metric"|"imperial"} Active unit system
+ * @returns Active unit system
  */
-function getUnitSystem(preference) {
+function getUnitSystem(preference?: string | null): "metric" | "imperial" {
   const p =
     preference !== undefined
       ? preference
@@ -37,10 +39,10 @@ function getUnitSystem(preference) {
  * Get a complete URL for any API resource, taking the
  * base URL configuration into account.
  *
- * @param {String} path Path to the API resource
- * @returns {URL} Final API URL
+ * @param path Path to the API resource
+ * @returns Final API URL
  */
-export function getApiUrl(path) {
+export function getApiUrl(path: string): URL {
   const baseUrl =
     (window.owntracks &&
       window.owntracks.config &&
@@ -57,20 +59,20 @@ export function getApiUrl(path) {
 /**
  * Check if the given string is an ISO 8601 YYYY-MM-DDTHH:MM:SS datetime.
  *
- * @param {String} s Input value to be tested
- * @returns {Boolean} Whether the input matches the expected format
+ * @param s Input value to be tested
+ * @returns Whether the input matches the expected format
  */
-export function isIsoDateTime(s) {
+export function isIsoDateTime(s: string): boolean {
   return moment(s, DATE_TIME_FORMAT, true).isValid();
 }
 
 /**
  * Convert degrees to radians.
  *
- * @param {Number} degrees Angle in degrees
- * @returns {Number} Angle in radians
+ * @param degrees Angle in degrees
+ * @returns Angle in radians
  */
-export function degreesToRadians(degrees) {
+export function degreesToRadians(degrees: number): number {
   return (degrees * Math.PI) / 180;
 }
 
@@ -80,11 +82,11 @@ export function degreesToRadians(degrees) {
  *
  * https://en.wikipedia.org/wiki/Haversine_formula
  *
- * @param {Coordinate} c1 First coordinate
- * @param {Coordinate} c2 Second coordinate
- * @returns {Number} Distance in meters
+ * @param c1 First coordinate
+ * @param c2 Second coordinate
+ * @returns Distance in meters
  */
-export function distanceBetweenCoordinates(c1, c2) {
+export function distanceBetweenCoordinates(c1: LatLng, c2: LatLng): number {
   const r = EARTH_RADIUS_IN_KM * 1000;
   const phi1 = degreesToRadians(c1.lat);
   const phi2 = degreesToRadians(c2.lat);
@@ -110,11 +112,14 @@ export function distanceBetweenCoordinates(c1, c2) {
  * Honors `config.units` (or its locale-based fallback): metric returns
  * m / km, imperial returns ft / mi.
  *
- * @param {Number} distance Distance in meters
- * @param {String} [unitPreference] Optional unit system override
- * @returns {String} Formatted string including translated unit
+ * @param distance Distance in meters
+ * @param [unitPreference] Optional unit system override
+ * @returns Formatted string including translated unit
  */
-export function humanReadableDistance(distance, unitPreference) {
+export function humanReadableDistance(
+  distance: number,
+  unitPreference?: string | null
+): string {
   let value;
   let unitKey;
   if (getUnitSystem(unitPreference) === "imperial") {
@@ -146,11 +151,14 @@ export function humanReadableDistance(distance, unitPreference) {
  * human-readable string with unit. Returns km/h for metric and mph for
  * imperial.
  *
- * @param {Number} kmh Speed in km/h
- * @param {String} [unitPreference] Optional unit system override
- * @returns {String} Formatted string including translated unit
+ * @param kmh Speed in km/h
+ * @param [unitPreference] Optional unit system override
+ * @returns Formatted string including translated unit
  */
-export function humanReadableSpeed(kmh, unitPreference) {
+export function humanReadableSpeed(
+  kmh: number,
+  unitPreference?: string | null
+): string {
   const imperial = getUnitSystem(unitPreference) === "imperial";
   const value = imperial ? kmh * KMH_TO_MPH : kmh;
   const unitKey = imperial ? "mph" : "km/h";
@@ -166,11 +174,14 @@ export function humanReadableSpeed(kmh, unitPreference) {
  * of switching to km / mi for large values, which matches typical altitude
  * display conventions.
  *
- * @param {Number} altitude Altitude in meters
- * @param {String} [unitPreference] Optional unit system override
- * @returns {String} Formatted string including translated unit
+ * @param altitude Altitude in meters
+ * @param [unitPreference] Optional unit system override
+ * @returns Formatted string including translated unit
  */
-export function humanReadableAltitude(altitude, unitPreference) {
+export function humanReadableAltitude(
+  altitude: number,
+  unitPreference?: string | null
+): string {
   const imperial = getUnitSystem(unitPreference) === "imperial";
   const value = imperial ? altitude * METERS_TO_FEET : altitude;
   const unitKey = imperial ? "ft" : "m";
@@ -182,10 +193,10 @@ export function humanReadableAltitude(altitude, unitPreference) {
 /**
  * Get the total number of locations from a nested location history.
  *
- * @param {LocationHistory} locationHistory Location history
- * @returns {Number} Total number of locations
+ * @param locationHistory Location history
+ * @returns Total number of locations
  */
-export function getLocationHistoryCount(locationHistory) {
+export function getLocationHistoryCount(locationHistory: TrackHistory): number {
   return Object.keys(locationHistory)
     .map((user) =>
       Object.keys(locationHistory[user])
@@ -198,8 +209,8 @@ export function getLocationHistoryCount(locationHistory) {
 /**
  * Assign a consistent distinct color for a given user.
  *
- * @param {String} user Username
- * @returns {String} Hex color code
+ * @param user Username
+ * @returns Hex color code
  */
 const USER_COLORS = [
   "#3f51b5", // Blue (primary)
@@ -220,10 +231,10 @@ const USER_COLORS = [
  * reloads, between the map and the legend, and regardless of who else is
  * currently visible.
  *
- * @param {User} user Username
- * @returns {Color} Colour for that user
+ * @param user Username
+ * @returns Colour for that user
  */
-export function getUserColor(user) {
+export function getUserColor(user?: User | null): Color {
   if (!user) {
     return USER_COLORS[0];
   }
@@ -248,11 +259,11 @@ export function getUserColor(user) {
  * palette size it wraps, and the per-user hash is used as the fallback
  * whenever the roster is not known.
  *
- * @param {User[]} users Known usernames
- * @returns {Map<User, Color>} Colour for each user
+ * @param users Known usernames
+ * @returns Colour for each user
  */
-export function buildUserColorMap(users) {
-  const colors = new Map();
+export function buildUserColorMap(users: User[]): Map<User, Color> {
+  const colors = new Map<User, Color>();
   [...users]
     .filter(Boolean)
     .sort((a, b) => String(a).localeCompare(String(b)))
@@ -265,9 +276,9 @@ export function buildUserColorMap(users) {
 /**
  * The palette used for per-user colours.
  *
- * @returns {Color[]} Available colours
+ * @returns Available colours
  */
-export function getUserColorPalette() {
+export function getUserColorPalette(): Color[] {
   return [...USER_COLORS];
 }
 
@@ -281,10 +292,10 @@ const BYTE_UNITS = [
 /**
  * Format a byte count for display.
  *
- * @param {Number} bytes Number of bytes
- * @returns {String} Human-readable size, e.g. "12.3 MB"
+ * @param bytes Number of bytes
+ * @returns Human-readable size, e.g. "12.3 MB"
  */
-export function humanReadableBytes(bytes) {
+export function humanReadableBytes(bytes: number): string {
   if (!bytes || bytes < 0) {
     return "0 B";
   }

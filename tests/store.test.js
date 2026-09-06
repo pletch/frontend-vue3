@@ -568,6 +568,38 @@ describe("populateStateFromQuery", () => {
     expect(store.realTimeUpdatesEnabled).toBe(true);
   });
 
+  test("parses both map coordinates from the URL", () => {
+    store.populateStateFromQuery({ lat: "51.4778", lng: "-0.0106" });
+
+    // Each branch used to assign its own value through unparsed and parse
+    // only the other one, leaving a string in the map state.
+    expect(store.map.center.lat).toBe(51.4778);
+    expect(store.map.center.lng).toBe(-0.0106);
+    expect(typeof store.map.center.lat).toBe("number");
+    expect(typeof store.map.center.lng).toBe("number");
+  });
+
+  test("applies a latitude given without a longitude", () => {
+    const before = store.map.center.lng;
+    store.populateStateFromQuery({ lat: "12.5" });
+
+    expect(store.map.center.lat).toBe(12.5);
+    expect(store.map.center.lng).toBe(before);
+  });
+
+  test("ignores non-numeric coordinates", () => {
+    store.populateStateFromQuery({ lat: "51.4778", lng: "-0.0106" });
+    store.populateStateFromQuery({ lat: "nonsense", lng: "nonsense" });
+
+    expect(store.map.center.lat).toBe(51.4778);
+    expect(store.map.center.lng).toBe(-0.0106);
+  });
+
+  test("parses the zoom level", () => {
+    store.populateStateFromQuery({ zoom: "14" });
+    expect(store.map.zoom).toBe(14);
+  });
+
   test("ignores an invalid date range", () => {
     const before = store.startDateTime;
     store.populateStateFromQuery({ start: "not-a-date" });

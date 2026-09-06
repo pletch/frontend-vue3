@@ -816,10 +816,8 @@ onMounted(() => {
   map = new maplibregl.Map({
     container: mapContainer.value,
     style: currentStyle.value,
-    center: [
-      parseFloat(locationStore.map.center.lng) || 0,
-      parseFloat(locationStore.map.center.lat) || 0,
-    ], // [lng, lat]
+    // The store guarantees numbers here.
+    center: [locationStore.map.center.lng, locationStore.map.center.lat],
     zoom: locationStore.map.zoom,
   });
 

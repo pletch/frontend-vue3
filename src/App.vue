@@ -34,6 +34,11 @@ const router = useRouter();
 const locationStore = useLocationStore();
 const { locale } = useI18n();
 
+// Applied during setup rather than on mount: Vue mounts children before their
+// parent, so the map is created from the store before this component's
+// `onMounted` would run, and a shared link's position would be ignored.
+locationStore.populateStateFromQuery(route.query);
+
 // Keep html lang attribute in sync with the i18n locale
 watchEffect(() => {
   document.documentElement.setAttribute("lang", locale.value);
@@ -95,7 +100,6 @@ onMounted(() => {
     config.primaryColor
   );
   document.documentElement.style.setProperty("--color-separator", "#eee");
-  locationStore.populateStateFromQuery(route.query);
   locationStore.loadData();
   // Initially update URL query params from state
   updateUrlQuery();

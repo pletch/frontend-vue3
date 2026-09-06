@@ -77,6 +77,12 @@ interface Config {
     };
     tileSize: number;
     url: string;
+    /**
+     * Unused since the move to MapLibre vector styles, as are
+     * `attribution`, `tileSize`, `zoomOffset`, `maxZoom`, `url` and
+     * `controls`. Declared so existing configs keep type checking.
+     */
+    urlDark: string;
     zoomOffset: number;
   };
   onLocationChange: {
@@ -265,8 +271,12 @@ interface QueryParams {
   start?: string;
   /** End date and time of selected time range */
   end?: string;
-  /** Selected user */
+  /** Map zoom level */
+  zoom?: string;
+  /** Selected user, superseded by `users` but still read */
   user?: string;
+  /** Comma-separated list of selected users */
+  users?: string;
   /** Selected device */
   device?: string;
   /** Comma-separated list of active layers */
@@ -297,3 +307,27 @@ type Device = string;
 
 /** Multiple location histories mapped to user and devices. */
 type LocationHistory = { User: { Device: OTLocation[] } };
+
+/**
+ * Globals the app attaches to `window`.
+ *
+ * `owntracks.config` is set by the deployment's `config/config.js`, which is
+ * loaded before the bundle and is not part of the build. The others are only
+ * present when benchmarking is enabled.
+ */
+interface Window {
+  owntracks?: {
+    config?: DeepPartial<Config>;
+  };
+  /** Benchmark runner, present only when benchmarking is enabled. */
+  __otBench?: unknown;
+  /** Location store, present only when benchmarking is enabled. */
+  __otStore?: unknown;
+  /** MapLibre map instance, present only when benchmarking is enabled. */
+  __otMap?: unknown;
+}
+
+/** Recursively optional, for user-supplied configuration overrides. */
+type DeepPartial<T> = {
+  [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
+};

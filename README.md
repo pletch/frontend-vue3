@@ -81,11 +81,14 @@ See [`docs/config.md`](docs/config.md) for all available options.
 
 ### TypeScript
 
-The pure-logic modules (`track`, `history`, `simplify`, `sampler`) are
-TypeScript. The rest of the codebase is still JavaScript and is bundled
-normally: `allowJs` is on and `checkJs` is off, so conversion can continue file
-by file without a flag day. Shared domain types (`OTLocation`, `User`,
-`Device`) are ambient declarations in [`src/index.d.ts`](src/index.d.ts).
+The store, API client and supporting modules (`store/location`, `api`, `util`,
+`config`, `track`, `history`, `simplify`, `sampler`, `geo`) are TypeScript.
+Components are still JavaScript and are bundled normally: `allowJs` is on and
+`checkJs` is off, so conversion can continue file by file without a flag day.
+
+Shared domain types (`OTLocation`, `Config`, `QueryParams`, `User`, `Device`)
+are ambient declarations in [`src/index.d.ts`](src/index.d.ts); geometry types
+shared between the store, sampler and map live in [`src/geo.ts`](src/geo.ts).
 
 ### CORS-Proxy
 

@@ -9,8 +9,7 @@
  * Coordinates are `[lng, lat]` pairs throughout, matching GeoJSON order.
  */
 
-/** A GeoJSON position: longitude first, then latitude. */
-export type Coordinate = [number, number];
+import type { Coordinate } from "@/geo";
 
 // Web Mercator tile size, used to convert a pixel tolerance into degrees.
 const TILE_SIZE = 512;

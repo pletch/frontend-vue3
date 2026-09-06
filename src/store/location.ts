@@ -14,8 +14,54 @@ import {
 import * as bench from "@/bench";
 import { buildDateSlices, mergeHistorySlice } from "@/history";
 import { Track, tracksFromHistory } from "@/track";
+import type { RawLocationHistory, TrackHistory } from "@/track";
+import type {
+  Bounds,
+  Coordinate,
+  LatLng,
+  MapGeoData,
+  PoiMarker,
+  Segment,
+} from "@/geo";
+import type { FetchProgress } from "@/api";
 
-function formatInitialDate(date) {
+/** Byte and slice progress of the history request currently in flight. */
+interface LoadProgress {
+  received: number;
+  total: number;
+  reliable: boolean;
+  slice: number;
+  slices: number;
+}
+
+/** Per-device cursor used to extend the derivation one point at a time. */
+interface DerivedCursor {
+  coordinates: Coordinate[];
+  inSegments: boolean;
+  lastLatLng: LatLng | null;
+}
+
+/** The derivation as it is built up; `devices` is internal bookkeeping. */
+interface DerivedState {
+  segments: Segment[];
+  pointsByUser: Map<User, Coordinate[]>;
+  pois: PoiMarker[];
+  bounds: Bounds;
+  count: number;
+  devices: Map<string, DerivedCursor>;
+}
+
+/** The visible map layers, persisted to local storage. */
+interface Layers {
+  heatmap: boolean;
+  last: boolean;
+  line: boolean;
+  poi: boolean;
+  points: boolean;
+  hideStale: boolean;
+}
+
+function formatInitialDate(date: Date | string): string {
   return (date instanceof Date ? date.toISOString() : date).slice(0, 19);
 }
 
@@ -24,32 +70,38 @@ export const useLocationStore = defineStore("location", () => {
   const isLoading = ref(false);
   // Set when talking to the recorder fails, so the UI can say so rather than
   // showing an empty map.
-  const loadError = ref(null);
+  const loadError = ref<string | null>(null);
   // Byte-level progress of the history request, aggregated across the
   // per-device requests that make it up.
-  const loadProgress = ref({ received: 0, total: 0, reliable: false });
+  const loadProgress = ref<LoadProgress>({
+    received: 0,
+    total: 0,
+    reliable: false,
+    slice: 0,
+    slices: 0,
+  });
   const isInformationModalVisible = ref(false);
   // Shared so that interacting with the map can dismiss the mobile nav panel,
   // which would otherwise cover what the user just tapped.
   const isMobileNavOpen = ref(false);
   const frontendVersion = ref(import.meta.env.PACKAGE_VERSION);
   const recorderVersion = ref("");
-  const users = ref([]);
-  const devices = ref({});
-  const lastLocations = shallowRef([]);
+  const users = ref<User[]>([]);
+  const devices = ref<Record<User, Device[]>>({});
+  const lastLocations = shallowRef<OTLocation[]>([]);
   // Held in a shallowRef so that reading the history does not pay the cost of
   // wrapping every location object in a reactive Proxy. Nested changes are
   // signalled with `triggerRef` rather than by deep reactivity.
-  const locationHistory = shallowRef({});
+  const locationHistory = shallowRef<TrackHistory>({});
   // Bumped only when the history is replaced wholesale, so consumers can
   // distinguish "a new data set" from "one more point arrived".
   const historyReloadVersion = ref(0);
   // An empty selection means "all users". Device selection only applies when
   // exactly one user is selected, since devices are scoped to a user.
-  const selectedUsers = ref(
+  const selectedUsers = ref<User[]>(
     config.selectedUser !== null ? [config.selectedUser] : []
   );
-  const selectedDevice = ref(
+  const selectedDevice = ref<Device | null>(
     config.selectedUser !== null ? config.selectedDevice : null
   );
 
@@ -65,13 +117,13 @@ export const useLocationStore = defineStore("location", () => {
    * @param {User} user Username
    * @returns {Boolean} True if shown
    */
-  function isUserSelected(user) {
+  function isUserSelected(user: User): boolean {
     return (
       selectedUsers.value.length === 0 || selectedUsers.value.includes(user)
     );
   }
   const units = useLocalStorage("owntracks-units", config.units);
-  const layers = useLocalStorage("owntracks-layers", {
+  const layers = useLocalStorage<Layers>("owntracks-layers", {
     ...config.map.layers,
     hideStale: false,
   });
@@ -87,10 +139,10 @@ export const useLocationStore = defineStore("location", () => {
   const distanceTravelled = ref(0);
   const elevationGain = ref(0);
   const elevationLoss = ref(0);
-  const requestAbortController = ref(null);
+  const requestAbortController = ref<AbortController | null>(null);
   const fitViewToggle = ref(false);
   const realTimeUpdatesEnabled = ref(true);
-  const playbackPoint = ref(null);
+  const playbackPoint = ref<OTLocation | null>(null);
 
   // Automatically tick the endDateTime forward if real-time updates are enabled
   setInterval(() => {
@@ -102,7 +154,7 @@ export const useLocationStore = defineStore("location", () => {
   // Getters
   const filteredLastLocations = computed(() => {
     const locations = lastLocations.value.filter((location) =>
-      isUserSelected(location.username)
+      isUserSelected(location.username ?? "")
     );
     // If the stale filter is disabled, or users are explicitly selected,
     // show everything that is selected.
@@ -134,7 +186,7 @@ export const useLocationStore = defineStore("location", () => {
    *
    * @returns {Object} Fresh derivation state
    */
-  function createDerivedState() {
+  function createDerivedState(): DerivedState {
     return {
       segments: [],
       pointsByUser: new Map(),
@@ -150,6 +202,21 @@ export const useLocationStore = defineStore("location", () => {
     };
   }
 
+  /**
+   * An empty derivation, so `mapGeoData` is never null.
+   *
+   * @returns Empty derived data
+   */
+  function emptyMapGeoData(): MapGeoData {
+    return {
+      segments: [],
+      pointsByUser: new Map(),
+      pois: [],
+      bounds: null,
+      count: 0,
+    };
+  }
+
   let derived = createDerivedState();
 
   /**
@@ -161,10 +228,10 @@ export const useLocationStore = defineStore("location", () => {
    * over the history. A fresh wrapper object is published on every change so
    * that watchers comparing by identity still fire.
    */
-  const mapGeoData = shallowRef(null);
+  const mapGeoData = shallowRef<MapGeoData>(emptyMapGeoData());
 
   /** Publish the current derivation state to `mapGeoData`. */
-  function publishDerived() {
+  function publishDerived(): void {
     mapGeoData.value = {
       segments: derived.segments,
       pointsByUser: derived.pointsByUser,
@@ -181,7 +248,7 @@ export const useLocationStore = defineStore("location", () => {
    * @param {Track} track Track holding the point
    * @param {Number} index Index of the point within the track
    */
-  function extendDerived(track, index) {
+  function extendDerived(track: Track, index: number): void {
     // NaN marks an unreported accuracy, and NaN comparisons are false, so an
     // unreported value is kept just as a missing field used to be.
     if (minAccuracy !== null && track.acc[index] > minAccuracy) {
@@ -209,7 +276,7 @@ export const useLocationStore = defineStore("location", () => {
       cursor.inSegments = false;
     }
 
-    const coordinate = [lon, lat];
+    const coordinate: Coordinate = [lon, lat];
     cursor.coordinates.push(coordinate);
     // A segment only becomes a line once it has a second point.
     if (!cursor.inSegments && cursor.coordinates.length === 2) {
@@ -240,7 +307,7 @@ export const useLocationStore = defineStore("location", () => {
   }
 
   /** Rebuild the derivation from scratch over the whole history. */
-  function rebuildDerived() {
+  function rebuildDerived(): void {
     bench.mark("store:rebuildDerived");
     derived = createDerivedState();
     const history = locationHistory.value;
@@ -268,7 +335,7 @@ export const useLocationStore = defineStore("location", () => {
    */
   const userColor = computed(() => {
     const colors = buildUserColorMap(users.value);
-    return (user) => colors.get(user) || getUserColor(user);
+    return (user: User): Color => colors.get(user) || getUserColor(user);
   });
 
   /**
@@ -294,7 +361,7 @@ export const useLocationStore = defineStore("location", () => {
    *
    * @param {Object} history Raw history keyed by user, then device
    */
-  function setLocationHistory(history) {
+  function setLocationHistory(history: RawLocationHistory): void {
     locationHistory.value = tracksFromHistory(history);
     notifyHistoryChanged(true);
   }
@@ -307,7 +374,7 @@ export const useLocationStore = defineStore("location", () => {
    *
    * @param {Boolean} [replaced] True if the whole history was replaced
    */
-  function notifyHistoryChanged(replaced = false) {
+  function notifyHistoryChanged(replaced = false): void {
     triggerRef(locationHistory);
     rebuildDerived();
     if (replaced) {
@@ -315,14 +382,15 @@ export const useLocationStore = defineStore("location", () => {
     }
   }
 
-  function populateStateFromQuery(query) {
+  function populateStateFromQuery(query: QueryParams): void {
+    // Both coordinates are parsed. Previously each branch assigned its own
+    // value through unparsed and parsed only the other one, leaving a string
+    // in the map state that every consumer then had to defend against.
     if (query.lat && !isNaN(parseFloat(query.lat))) {
-      map.center.lat = query.lat;
-      map.center.lng = parseFloat(map.center.lng);
+      map.center.lat = parseFloat(query.lat);
     }
     if (query.lng && !isNaN(parseFloat(query.lng))) {
-      map.center.lat = parseFloat(map.center.lat);
-      map.center.lng = query.lng;
+      map.center.lng = parseFloat(query.lng);
     }
     if (query.zoom && !isNaN(parseInt(query.zoom))) {
       map.zoom = parseInt(query.zoom);
@@ -344,7 +412,7 @@ export const useLocationStore = defineStore("location", () => {
     }
     if (query.layers) {
       const activeLayers = query.layers.split(",");
-      Object.keys(layers.value).forEach((layer) => {
+      (Object.keys(layers.value) as (keyof Layers)[]).forEach((layer) => {
         layers.value[layer] = activeLayers.includes(layer);
       });
     }
@@ -363,7 +431,8 @@ export const useLocationStore = defineStore("location", () => {
       await Promise.all([getUsers(), getRecorderVersion()]);
       await getDevices();
       await Promise.all([getLastLocations(), getLocationHistory()]);
-    } catch (error) {
+    } catch (caught) {
+      const error = caught as Error;
       if (error.name === "AbortError") {
         return;
       }
@@ -379,7 +448,8 @@ export const useLocationStore = defineStore("location", () => {
     loadError.value = null;
     try {
       await Promise.all([getLastLocations(), getLocationHistory()]);
-    } catch (error) {
+    } catch (caught) {
+      const error = caught as Error;
       if (error.name === "AbortError") {
         return;
       }
@@ -405,8 +475,12 @@ export const useLocationStore = defineStore("location", () => {
    *
    * @param {OTLocation} location Location to insert
    */
-  function appendLocationToHistory(location) {
+  function appendLocationToHistory(location: OTLocation): void {
     const { username, device } = location;
+    if (!username || !device) {
+      // Without both we cannot file the point against a track.
+      return;
+    }
     const history = locationHistory.value;
     if (!history[username]) {
       history[username] = {};
@@ -445,7 +519,7 @@ export const useLocationStore = defineStore("location", () => {
    *
    * @param {Object} slice History for the same devices, covering a later range
    */
-  function appendHistorySlice(slice) {
+  function appendHistorySlice(slice: RawLocationHistory): number {
     bench.mark("store:appendHistorySlice");
     const ranges = mergeHistorySlice(locationHistory.value, slice);
 
@@ -520,7 +594,7 @@ export const useLocationStore = defineStore("location", () => {
 
   async function getLocationHistory() {
     isLoading.value = true;
-    let targetDevices;
+    let targetDevices: Record<User, Device[]>;
     if (selectedUsers.value.length === 1 && selectedDevice.value) {
       targetDevices = { [selectedUsers.value[0]]: [selectedDevice.value] };
     } else if (selectedUsers.value.length > 0) {
@@ -569,7 +643,7 @@ export const useLocationStore = defineStore("location", () => {
      *
      * @param {Object} chunk Progress for one chunk
      */
-    const onProgress = (chunk) => {
+    const onProgress = (chunk: FetchProgress) => {
       received += chunk.received;
       total += chunk.total;
       reliable = reliable && chunk.reliable;
@@ -641,7 +715,8 @@ export const useLocationStore = defineStore("location", () => {
       if (config.showDistanceTravelled) {
         updateTravelStats(locationHistory.value);
       }
-    } catch (error) {
+    } catch (caught) {
+      const error = caught as Error;
       if (error.name !== "AbortError") {
         log("STORE", error, LOG_ERROR);
         loadError.value = error.message || String(error);
@@ -652,7 +727,7 @@ export const useLocationStore = defineStore("location", () => {
     }
   }
 
-  function updateTravelStats(history) {
+  function updateTravelStats(history: TrackHistory): void {
     const start = Date.now();
     let dist = 0;
     let gain = 0;
@@ -714,7 +789,7 @@ export const useLocationStore = defineStore("location", () => {
    *
    * @param {User[]} value Usernames, empty for all
    */
-  async function setSelectedUsers(value) {
+  async function setSelectedUsers(value: User[]): Promise<void> {
     const next = [...new Set(value)];
     // A device belongs to one user, so any other selection clears it.
     if (next.length !== 1 || next[0] !== selectedUsers.value[0]) {
@@ -730,7 +805,10 @@ export const useLocationStore = defineStore("location", () => {
    * @param {User} user Username
    * @param {Boolean} selected Whether the user should be shown
    */
-  async function toggleSelectedUser(user, selected) {
+  async function toggleSelectedUser(
+    user: User,
+    selected: boolean
+  ): Promise<void> {
     const next = selectedUsers.value.filter((u) => u !== user);
     if (selected) {
       next.push(user);
@@ -738,38 +816,44 @@ export const useLocationStore = defineStore("location", () => {
     await setSelectedUsers(next);
   }
 
-  async function setSelectedUser(user) {
+  async function setSelectedUser(user: User | null): Promise<void> {
     await setSelectedUsers(user === null ? [] : [user]);
   }
 
-  async function setSelectedDevice(device) {
+  async function setSelectedDevice(device: Device | null): Promise<void> {
     selectedDevice.value = device;
     await reloadData();
   }
 
-  async function setStartDateTime(val) {
+  async function setStartDateTime(val: string): Promise<void> {
     startDateTime.value = val;
     await reloadData();
   }
 
-  async function setEndDateTime(val) {
+  async function setEndDateTime(val: string): Promise<void> {
     endDateTime.value = val;
     await reloadData();
   }
 
-  function setUnits(val) {
+  function setUnits(val: "metric" | "imperial" | null): void {
     units.value = val;
   }
 
-  function setMapLayerVisibility({ layer, visibility }) {
+  function setMapLayerVisibility({
+    layer,
+    visibility,
+  }: {
+    layer: keyof Layers;
+    visibility: boolean;
+  }): void {
     layers.value[layer] = visibility;
   }
 
-  function setMapCenter(center) {
+  function setMapCenter(center: LatLng): void {
     map.center = center;
   }
 
-  function setMapZoom(zoom) {
+  function setMapZoom(zoom: number): void {
     map.zoom = zoom;
   }
 
