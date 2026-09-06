@@ -39,12 +39,9 @@ const isPlaying = ref(false);
 const currentIndex = ref(0);
 let interval = null;
 
-const historyPoints = computed(() => {
-  if (!locationStore.selectedUser || !locationStore.selectedDevice) return [];
-  const userHistory = locationStore.locationHistory[locationStore.selectedUser];
-  if (!userHistory) return [];
-  return userHistory[locationStore.selectedDevice] || [];
-});
+// The store owns this derivation so that components do not need to know how
+// changes to the (shallow) location history are signalled.
+const historyPoints = computed(() => locationStore.selectedDeviceHistory);
 
 const togglePlayback = () => {
   if (isPlaying.value) {

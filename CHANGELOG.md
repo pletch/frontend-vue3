@@ -33,6 +33,13 @@ Dates are in UTC.
 - Fixed an issue where the velocity unit system would flap between mph and km/h when a user stopped moving.
 - Resolved an issue where playback markers would linger on the map after clearing the active device context.
 - Cleaned up the standard location popup to prevent timezone information from overflowing the modal container.
+- Added a benchmarking harness (`?bench` or `bench: true`) that measures the location data pipeline and can load synthetic datasets via `window.__otBench`. See `docs/performance.md`.
+- Software WebGL renderers no longer trigger the full-screen "hardware acceleration required" block; they show a dismissible warning instead, restoring the map for users on VMs, over RDP, or without a GPU driver. The old behaviour is available via `map.blockSoftwareWebGL`.
+### Fixed
+- Live location updates no longer cost time proportional to the entire loaded history. The history is held in a `shallowRef` with explicit invalidation instead of deep reactivity, cutting a live update at 100k points from ~1015 ms to ~40 ms and a full load from ~1281 ms to ~176 ms.
+- Live updates are no longer silently discarded. `updateGeoJSON()` guarded on `map.isStyleLoaded()`, which reports false whenever MapLibre has pending source or tile work, so after a large load every subsequent update did the full derive work and then threw it away, leaving the map stale.
+- The map no longer re-fits to the data on every live location update, which ignored `onLocationChange.fitView` and dragged the view out from under the user. It now re-fits only when the history is replaced wholesale.
+- Incoming WebSocket locations are placed with a binary search instead of re-sorting the whole device history on every message.
 ### Changed
 - Converted core components (`AppHeader.vue`, `Map.vue`, `LDeviceLocationPopup.vue`, `LHeatmap.vue`) to native `<script setup>` syntax.
 - Completely rebuilt map rendering logic to be proxy-aware and avoid infinite recursion crashes with Leaflet and Vue 3.

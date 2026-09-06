@@ -13,30 +13,50 @@
           <MonitorXIcon class="w-8 h-8" />
         </div>
         <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          Hardware Acceleration Required
+          {{ $t("WebGL required") }}
         </h2>
         <p class="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
-          The OwnTracks high-performance map engine requires WebGL. It appears
-          your browser does not support hardware acceleration, or it has been
-          disabled.
+          {{ $t("This browser does not appear to support WebGL.") }}
         </p>
         <div
           class="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-4 rounded-lg text-sm text-left"
         >
-          <strong class="block mb-1 font-semibold">How to fix this:</strong>
+          <strong class="block mb-1 font-semibold">
+            {{ $t("How to fix this") }}
+          </strong>
           <ul class="list-disc pl-5 space-y-1">
             <li>
-              Enable
-              <strong>Hardware Acceleration</strong>
-              in your browser settings.
+              {{ $t("Enable hardware acceleration in your browser settings.") }}
             </li>
-            <li>Ensure your graphics drivers are up to date.</li>
-            <li>Try using a modern browser like Chrome, Firefox, or Safari.</li>
+            <li>{{ $t("Ensure your graphics drivers are up to date.") }}</li>
+            <li>
+              {{ $t("Try a current version of Chrome, Firefox or Safari.") }}
+            </li>
           </ul>
         </div>
       </div>
     </div>
-    <div v-else class="absolute inset-0" ref="mapContainer"></div>
+    <template v-else>
+      <div class="absolute inset-0" ref="mapContainer"></div>
+      <div
+        v-if="webglIsSoftware && !softwareWarningDismissed"
+        :class="softwareWarningClass"
+        role="status"
+      >
+        <TriangleAlertIcon class="w-4 h-4 mt-0.5 shrink-0" />
+        <span class="flex-1">
+          {{ $t("Software rendering: performance will be limited.") }}
+        </span>
+        <button
+          type="button"
+          :class="softwareWarningDismissClass"
+          :title="$t('Dismiss')"
+          @click="softwareWarningDismissed = true"
+        >
+          <XIcon class="w-4 h-4" />
+        </button>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -61,18 +81,32 @@ import {
   humanReadableSpeed,
   humanReadableAltitude,
 } from "@/util";
+import * as bench from "@/bench";
 import LDeviceLocationPopup from "@/components/LDeviceLocationPopup.vue";
 import {
   PersonStandingIcon,
   BikeIcon,
   CarIcon,
   MonitorXIcon,
+  TriangleAlertIcon,
+  XIcon,
 } from "lucide-vue-next";
 
 const mapContainer = ref(null);
 let map = null;
 const locationStore = useLocationStore();
 
+const SOFTWARE_RENDERERS = ["swiftshader", "llvmpipe", "software"];
+
+/**
+ * Detect WebGL availability and whether it is hardware accelerated.
+ *
+ * A software renderer still draws the map correctly, just slowly, so it is
+ * reported separately from "no WebGL at all" rather than being treated as an
+ * outright failure.
+ *
+ * @returns {{supported: Boolean, software: Boolean}} Detection result
+ */
 const checkWebGLSupport = () => {
   try {
     const canvas = document.createElement("canvas");
@@ -80,29 +114,46 @@ const checkWebGLSupport = () => {
       canvas.getContext("webgl2") ||
       canvas.getContext("webgl") ||
       canvas.getContext("experimental-webgl");
-    if (!gl) return false;
+    if (!gl) return { supported: false, software: false };
 
-    // Optional: Fail if it's a software renderer (like SwiftShader on the VM)
     const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
     if (debugInfo) {
       const renderer = gl
         .getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
         .toLowerCase();
-      if (
-        renderer.includes("swiftshader") ||
-        renderer.includes("llvmpipe") ||
-        renderer.includes("software")
-      ) {
-        return false;
+      if (SOFTWARE_RENDERERS.some((name) => renderer.includes(name))) {
+        return { supported: true, software: true };
       }
     }
-    return true;
-  } catch (e) {
-    return false;
+    return { supported: true, software: false };
+  } catch {
+    return { supported: false, software: false };
   }
 };
 
-const webglSupported = checkWebGLSupport();
+const webgl = checkWebGLSupport();
+// Software rendering is slow but usable. Block on it only when the config asks
+// us to; benchmarking always needs the real map, so it opts in implicitly.
+const blockSoftwareWebGL = config.map.blockSoftwareWebGL && !bench.isEnabled();
+const webglSupported =
+  webgl.supported && !(webgl.software && blockSoftwareWebGL);
+const webglIsSoftware = webgl.supported && webgl.software;
+const softwareWarningDismissed = ref(false);
+
+const softwareWarningClass = [
+  "absolute top-2 left-1/2 -translate-x-1/2 z-10",
+  "max-w-md w-[calc(100%-1rem)] flex items-start gap-2",
+  "rounded-lg border px-3 py-2 text-sm shadow-md",
+  "border-amber-300 bg-amber-50 text-amber-900",
+  "dark:border-amber-700 dark:bg-amber-900/90 dark:text-amber-100",
+].join(" ");
+
+const softwareWarningDismissClass = [
+  "shrink-0 rounded p-0.5",
+  "hover:bg-amber-200/70 dark:hover:bg-amber-800/70",
+  "focus-visible:outline focus-visible:outline-2",
+  "focus-visible:outline-offset-1",
+].join(" ");
 const isDark = useDark();
 const instance = getCurrentInstance();
 
@@ -191,6 +242,7 @@ const MarkerComponent = {
 
 const renderMarkers = () => {
   if (!map) return;
+  bench.mark("map:renderMarkers");
 
   const currentKeys = new Set();
 
@@ -254,6 +306,8 @@ const renderMarkers = () => {
       activeMarkers.delete(key);
     }
   }
+
+  bench.measure("map:renderMarkers", activeMarkers.size);
 };
 
 let playbackMarker = null;
@@ -329,6 +383,7 @@ const renderPlaybackMarker = () => {
 };
 
 const getLinesGeoJSON = () => {
+  bench.mark("geojson:lines");
   const features = locationStore.filteredLocationHistoryLatLngGroups
     .filter((group) => group.latLngs.length > 1)
     .map((group) => ({
@@ -345,10 +400,12 @@ const getLinesGeoJSON = () => {
       },
     }));
 
+  bench.measure("geojson:lines", features.length);
   return { type: "FeatureCollection", features };
 };
 
 const getHeatmapGeoJSON = () => {
+  bench.mark("geojson:heatmap");
   const features = locationStore.filteredLocationHistoryLatLngs.map((ll) => ({
     type: "Feature",
     geometry: {
@@ -360,6 +417,7 @@ const getHeatmapGeoJSON = () => {
     },
   }));
 
+  bench.measure("geojson:heatmap", features.length);
   return { type: "FeatureCollection", features };
 };
 
@@ -381,6 +439,7 @@ const createGeoJSONCircle = (center, radiusInMeters, points = 64) => {
 };
 
 const getAccuracyCirclesGeoJSON = () => {
+  bench.mark("geojson:accuracyCircles");
   const features = locationStore.filteredLastLocations
     .filter((l) => l.acc)
     .map((l) => ({
@@ -388,10 +447,12 @@ const getAccuracyCirclesGeoJSON = () => {
       properties: { color: getUserColor(l.username) },
       geometry: createGeoJSONCircle([l.lon, l.lat], l.acc),
     }));
+  bench.measure("geojson:accuracyCircles", features.length);
   return { type: "FeatureCollection", features };
 };
 
 const getPointsGeoJSON = () => {
+  bench.mark("geojson:points");
   const features = [];
   Object.keys(locationStore.filteredLocationHistory).forEach((user) => {
     Object.keys(locationStore.filteredLocationHistory[user]).forEach(
@@ -427,6 +488,7 @@ const getPointsGeoJSON = () => {
       }
     );
   });
+  bench.measure("geojson:points", features.length);
   return { type: "FeatureCollection", features };
 };
 
@@ -588,13 +650,25 @@ const initSourcesAndLayers = () => {
 };
 
 const updateGeoJSON = () => {
-  if (!map || !map.isStyleLoaded()) return;
+  // `map.isStyleLoaded()` is false whenever MapLibre has pending source or tile
+  // work, not just before the initial style load, so guarding on it silently
+  // drops updates on large data sets. What actually matters is whether our own
+  // sources exist yet; those are created by `initSourcesAndLayers` on style
+  // load.
+  if (!map || !map.getSource("history-lines")) return;
+  bench.mark("map:updateGeoJSON");
 
   const linesSource = map.getSource("history-lines");
-  if (linesSource) linesSource.setData(getLinesGeoJSON());
+  if (linesSource) {
+    const data = getLinesGeoJSON();
+    bench.time("map:setData:lines", () => linesSource.setData(data));
+  }
 
   const heatmapSource = map.getSource("history-heatmap");
-  if (heatmapSource) heatmapSource.setData(getHeatmapGeoJSON());
+  if (heatmapSource) {
+    const data = getHeatmapGeoJSON();
+    bench.time("map:setData:heatmap", () => heatmapSource.setData(data));
+  }
 
   if (map.getLayer("history-lines-layer")) {
     map.setLayoutProperty(
@@ -643,16 +717,27 @@ const updateGeoJSON = () => {
   }
 
   const accuracySource = map.getSource("accuracy-circles");
-  if (accuracySource) accuracySource.setData(getAccuracyCirclesGeoJSON());
+  if (accuracySource) {
+    const data = getAccuracyCirclesGeoJSON();
+    bench.time("map:setData:accuracyCircles", () =>
+      accuracySource.setData(data)
+    );
+  }
 
   const pointsSource = map.getSource("history-points");
-  if (pointsSource) pointsSource.setData(getPointsGeoJSON());
+  if (pointsSource) {
+    const data = getPointsGeoJSON();
+    bench.time("map:setData:points", () => pointsSource.setData(data));
+  }
+
+  bench.measure("map:updateGeoJSON");
 };
 
 let isFirstFitView = true;
 
 const fitView = () => {
   if (!map) return;
+  bench.mark("map:fitView");
   const { layers } = locationStore;
   const historyLatLngs = locationStore.filteredLocationHistoryLatLngs;
 
@@ -679,6 +764,7 @@ const fitView = () => {
     });
     isFirstFitView = false;
   }
+  bench.measure("map:fitView");
 };
 
 onMounted(() => {
@@ -695,6 +781,11 @@ onMounted(() => {
   });
 
   map.addControl(new maplibregl.NavigationControl(), "top-left");
+
+  if (bench.isEnabled()) {
+    // The benchmark runner needs to wait for the style before measuring.
+    window.__otMap = map;
+  }
 
   map.on("style.load", () => {
     initSourcesAndLayers();
@@ -716,49 +807,38 @@ watch(currentStyle, (newStyle) => {
   }
 });
 
-watch(
-  () => locationStore.filteredLastLocations,
-  () => {
-    renderMarkers();
-  },
-  { deep: true }
-);
+// `lastLocations` is a shallowRef holding one entry per device, so a plain
+// watcher on the derived getter is enough - no deep traversal required.
+watch(() => locationStore.filteredLastLocations, renderMarkers);
 
+// The history getters return freshly built structures whenever the underlying
+// shallowRef is triggered, so identity comparison is sufficient here. Deep
+// watching them would walk the entire data set on every single update.
 watch(
   [
     () => locationStore.filteredLocationHistoryLatLngGroups,
     () => locationStore.filteredLocationHistoryLatLngs,
-    () => locationStore.layers,
   ],
-  () => {
-    updateGeoJSON();
-  },
-  { deep: true }
+  updateGeoJSON
 );
 
+// Layer visibility is a small object of booleans, so deep watching is cheap.
+watch(() => locationStore.layers, updateGeoJSON, { deep: true });
+
 watch(() => locationStore.fitViewToggle, fitView);
+
+// Only re-fit when the history is replaced wholesale. Re-fitting on every live
+// append would drag the map out from under the user, and is what
+// `onLocationChange.fitView` exists to opt into.
+watch(() => locationStore.historyReloadVersion, fitView);
 watch(
   () => locationStore.lastLocations,
   () => {
     if (config.onLocationChange?.fitView) fitView();
-  },
-  { deep: true }
+  }
 );
-watch(
-  () => locationStore.locationHistory,
-  () => {
-    updateGeoJSON();
-    fitView();
-  },
-  { deep: true }
-);
-watch(
-  () => locationStore.playbackPoint,
-  () => {
-    renderPlaybackMarker();
-  },
-  { deep: true }
-);
+
+watch(() => locationStore.playbackPoint, renderPlaybackMarker);
 
 onUnmounted(() => {
   if (map) map.remove();

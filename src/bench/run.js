@@ -70,6 +70,10 @@ export async function load(points = 100000, options = {}) {
   bench.time("store:assign", () => {
     store.locationHistory = history;
     store.lastLocations = lastLocations;
+    // Mirror what `getLocationHistory()` does, so that consumers keyed on a
+    // wholesale replacement (such as the map's fit-to-view) behave as they
+    // would for a real load.
+    store.notifyHistoryChanged(true);
   });
   await settle();
   const pipelineMs = bench.measure("bench:pipeline", points);
@@ -86,8 +90,13 @@ export async function load(points = 100000, options = {}) {
 /**
  * Simulate live WebSocket location updates against the current dataset.
  *
- * Each tick appends one point to the first device in the store, which is the
- * path that currently re-derives and re-uploads the entire history.
+ * This drives the same store action the real WebSocket handler uses, so it
+ * measures the actual live-update path rather than a direct mutation.
+ *
+ * Only `nextTick()` is awaited between updates: the store getters and the
+ * MapLibre `setData` calls all run synchronously in pre-flush watchers, so
+ * waiting for animation frames would add ~16 ms of unrelated floor to every
+ * measurement.
  *
  * @param {Number} [count] Number of updates to simulate
  * @returns {Promise<Object>} Summary of the run
@@ -104,6 +113,7 @@ export async function tick(count = 50) {
 
   const deviceHistory = store.locationHistory[user][device];
   const template = deviceHistory[deviceHistory.length - 1];
+  const historyPoints = deviceHistory.length;
 
   bench.mark("bench:liveUpdates");
   for (let i = 0; i < count; i++) {
@@ -113,9 +123,9 @@ export async function tick(count = 50) {
       lat: template.lat + (i + 1) * 0.0001,
       lon: template.lon + (i + 1) * 0.0001,
     };
-    store.locationHistory[user][device].push(location);
+    store.appendLocationToHistory(location);
     store.lastLocations = [location];
-    await settle();
+    await nextTick();
   }
   const totalMs = bench.measure("bench:liveUpdates", count);
 
@@ -123,7 +133,7 @@ export async function tick(count = 50) {
     updates: count,
     totalMs: Number(totalMs.toFixed(2)),
     msPerUpdate: Number((totalMs / count).toFixed(2)),
-    historyPoints: deviceHistory.length,
+    historyPoints,
   };
   log("PERFORMANCE", () => `[bench] tick ${JSON.stringify(summary)}`);
   return summary;

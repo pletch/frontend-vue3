@@ -25,11 +25,26 @@ Timings are collected by [`src/bench/index.js`](../src/bench/index.js), which
 is a no-op unless benchmarking is enabled. The instrumentation can therefore
 live permanently in the hot paths.
 
+## Methodology
+
+All figures below come from the same pinned configuration (`minAccuracy: 50`,
+`maxPointDistance: 1000`) so that runs are comparable. Numbers were taken in
+headless Chromium with a SwiftShader (software) WebGL backend; absolute values
+on real hardware are lower, but the relative costs and the scaling behaviour
+are the point.
+
+One methodology change happened between the baseline and the first round of
+optimisation: `tick()` originally waited two animation frames between updates,
+which added roughly 33 ms of unrelated floor to every measurement, and it
+mutated the store directly. It now drives the same `appendLocationToHistory`
+action the WebSocket handler uses and waits only for `nextTick()`, since the
+store getters and the MapLibre `setData` calls all run synchronously in
+pre-flush watchers. Baseline per-update figures are therefore overstated by
+about 33 ms; that does not change any conclusion below.
+
 ## Baseline
 
-Measured on the commit that introduced this document, in headless Chromium with
-a SwiftShader (software) WebGL backend. Absolute numbers on real hardware will
-be lower; the relative costs and the scaling behaviour are the point.
+Measured on the commit that introduced this document.
 
 | Dataset | Full load pipeline | Per live WebSocket update |
 | ------- | ------------------ | ------------------------- |
@@ -74,3 +89,32 @@ source or tile work, not merely before the initial style load. After loading
 update ran the full derive chain and then discarded the result without
 reaching the map. There is no retry, so the map stays stale until some later
 update happens to arrive while the style reports ready.
+
+## After: explicit invalidation
+
+The first round of optimisation replaced deep reactivity on the location
+history with explicit invalidation. Median of three runs:
+
+| Dataset | Full load         | Per live WebSocket update |
+| ------- | ----------------- | ------------------------- |
+| 10,000  | 44 ms (was 156)   | 6.1 ms (was 131)          |
+| 100,000 | 176 ms (was 1281) | 39.5 ms (was 1015)        |
+
+Per-point costs in the derived getters fell by roughly an order of magnitude,
+which is the reactive `Proxy` overhead disappearing now that the history is
+held in a `shallowRef` of raw objects:
+
+| Getter                                      | Before  | After    |
+| ------------------------------------------- | ------- | -------- |
+| `store:filteredLocationHistory`             | 0.58 µs | 0.022 µs |
+| `store:filteredLocationHistoryLatLngs`      | 0.44 µs | 0.031 µs |
+| `store:filteredLocationHistoryLatLngGroups` | 0.76 µs | 0.093 µs |
+
+### What is still outstanding
+
+Per-update cost still grows with the size of the history (6 ms at 10k against
+40 ms at 100k), because every update re-derives all three getters and rebuilds
+all four GeoJSON `FeatureCollection`s from scratch. Making an update cost
+something proportional to what actually changed, rather than to how much
+history is loaded, is the next piece of work, along with client-side sampling
+and a streaming JSON decode of the initial fetch.
