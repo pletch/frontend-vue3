@@ -236,3 +236,25 @@ Because the distance rule applied to new points is weaker than a full
 Douglas-Peucker pass, a segment's retained points are periodically
 re-simplified. That runs over the reduced set rather than the source data, so
 it stays cheap while bounding how far the incremental result can drift.
+
+## Loading feedback
+
+The history request is read as a stream so that progress can be reported in
+bytes rather than shown as an unchanging spinner. The loading dialog shows a
+determinate bar when the recorder provides a usable `Content-Length`, and how
+much has arrived otherwise.
+
+`Content-Length` describes the bytes on the wire while the stream yields
+decoded bytes, so with compression enabled the declared total is an
+underestimate. Rather than drive a bar past 100%, progress is marked unreliable
+once the total is exceeded and the UI falls back to showing the amount
+received. Both fields are reported as deltas so that the several per-device
+requests making up one load can be aggregated.
+
+Verified against a 4.3 MB payload served in 20 chunks: the dialog counted from
+5% to 100% with correct byte formatting.
+
+A streaming JSON _decoder_, which would let points appear as they arrive rather
+than after the body is complete, is still outstanding. Byte progress addresses
+the "no idea whether it is nearly done" problem; incremental decoding would
+additionally shorten time-to-first-pixel.

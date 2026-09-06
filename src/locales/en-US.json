@@ -72,5 +72,6 @@
   "Retry": "Retry",
   "Play": "Play",
   "Pause": "Pause",
-  "Playback position": "Playback position"
+  "Playback position": "Playback position",
+  "{size} received": "{size} received"
 }

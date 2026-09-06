@@ -52,9 +52,10 @@ function fetchApi(path, params = {}, fetchOptions = {}) {
  * @param {String} path API resource path
  * @param {Object} [params] Query parameters
  * @param {Object} [fetchOptions] fetch() options
+ * @param {ProgressCallback} [onProgress] Called as bytes arrive
  * @returns {Promise<*>} Decoded JSON body
  */
-async function fetchJson(path, params = {}, fetchOptions = {}) {
+async function fetchJson(path, params = {}, fetchOptions = {}, onProgress) {
   const url = getApiUrl(path).href;
   let response;
 
@@ -81,7 +82,9 @@ async function fetchJson(path, params = {}, fetchOptions = {}) {
   }
 
   try {
-    return await response.json();
+    return onProgress
+      ? await readJsonWithProgress(response, onProgress)
+      : await response.json();
   } catch (error) {
     if (error.name === "AbortError") {
       throw error;
@@ -93,6 +96,68 @@ async function fetchJson(path, params = {}, fetchOptions = {}) {
       cause: error,
     });
   }
+}
+
+/**
+ * Read a response body, reporting progress as bytes arrive, then decode it.
+ *
+ * A history request can take a long time on a large date range, and a spinner
+ * says nothing about whether it is nearly done. Reading the body as a stream
+ * lets us report actual progress.
+ *
+ * `Content-Length` describes the bytes on the wire while the stream yields
+ * decoded bytes, so with compression enabled the total is an underestimate.
+ * Rather than show a bar that races past 100%, the total is reported as
+ * unknown once it is exceeded, and the UI falls back to showing the amount
+ * received.
+ *
+ * @param {Response} response Response to read
+ * @param {ProgressCallback} onProgress Called with deltas as bytes arrive
+ * @returns {Promise<*>} Decoded JSON body
+ */
+async function readJsonWithProgress(response, onProgress) {
+  if (!response.body || typeof response.body.getReader !== "function") {
+    // No streaming support: fall back to a plain read.
+    return response.json();
+  }
+
+  const declared = Number(response.headers.get("content-length")) || 0;
+  const reader = response.body.getReader();
+  const chunks = [];
+  let received = 0;
+  let announcedTotal = false;
+  let reliable = Boolean(declared);
+
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    chunks.push(value);
+    received += value.length;
+    if (declared && received > declared) {
+      // More decoded bytes than the wire length, so the body was compressed
+      // and the declared total is not a usable denominator.
+      reliable = false;
+    }
+    // Both fields are deltas, so that a caller can aggregate across the
+    // several requests that make up one load. The total is contributed once.
+    onProgress({
+      received: value.length,
+      total: announcedTotal ? 0 : declared,
+      reliable,
+    });
+    announcedTotal = true;
+  }
+
+  const body = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  return JSON.parse(new TextDecoder().decode(body));
 }
 
 /**
@@ -178,6 +243,7 @@ export async function getLastLocations(user, device) {
  * @param {String} start Start date and time in UTC
  * @param {String} end End date and time in UTC
  * @param {Object} [fetchOptions] fetch() options
+ * @param {ProgressCallback} [onProgress] Called as bytes arrive
  * @returns {Promise<OTLocation[]>} Array of location history objects
  */
 export async function getUserDeviceLocationHistory(
@@ -185,7 +251,8 @@ export async function getUserDeviceLocationHistory(
   device,
   start,
   end,
-  fetchOptions
+  fetchOptions,
+  onProgress
 ) {
   const json = await fetchJson(
     "/api/0/locations",
@@ -196,7 +263,8 @@ export async function getUserDeviceLocationHistory(
       device,
       format: "json",
     },
-    fetchOptions
+    fetchOptions,
+    onProgress
   );
   // We need to manually sort by timestamp, otherwise the line segments may be
   // drawn in the wrong order. The recorder API simply returns entries in the
@@ -221,9 +289,16 @@ export async function getUserDeviceLocationHistory(
  * @param {String} start Start date and time in UTC
  * @param {String} end End date and time in UTC
  * @param {Object} [fetchOptions] fetch() options
+ * @param {ProgressCallback} [onProgress] Called as bytes arrive
  * @returns {Promise<LocationHistory>} Location history
  */
-export async function getLocationHistory(devices, start, end, fetchOptions) {
+export async function getLocationHistory(
+  devices,
+  start,
+  end,
+  fetchOptions,
+  onProgress
+) {
   const locationHistory = {};
   await Promise.all(
     Object.keys(devices).map(async (user) => {
@@ -235,7 +310,8 @@ export async function getLocationHistory(devices, start, end, fetchOptions) {
             device,
             start,
             end,
-            fetchOptions
+            fetchOptions,
+            onProgress
           );
         })
       );

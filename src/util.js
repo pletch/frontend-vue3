@@ -223,3 +223,28 @@ export function getUserColor(user) {
   }
   return assignedColors[user];
 }
+
+// Byte-size units, largest first.
+const BYTE_UNITS = [
+  { limit: 1024 ** 3, suffix: "GB" },
+  { limit: 1024 ** 2, suffix: "MB" },
+  { limit: 1024, suffix: "kB" },
+];
+
+/**
+ * Format a byte count for display.
+ *
+ * @param {Number} bytes Number of bytes
+ * @returns {String} Human-readable size, e.g. "12.3 MB"
+ */
+export function humanReadableBytes(bytes) {
+  if (!bytes || bytes < 0) {
+    return "0 B";
+  }
+  const unit = BYTE_UNITS.find((candidate) => bytes >= candidate.limit);
+  if (!unit) {
+    return `${Math.round(bytes)} B`;
+  }
+  const value = bytes / unit.limit;
+  return `${value < 10 ? value.toFixed(1) : Math.round(value)} ${unit.suffix}`;
+}

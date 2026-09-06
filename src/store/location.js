@@ -21,6 +21,9 @@ export const useLocationStore = defineStore("location", () => {
   // Set when talking to the recorder fails, so the UI can say so rather than
   // showing an empty map.
   const loadError = ref(null);
+  // Byte-level progress of the history request, aggregated across the
+  // per-device requests that make it up.
+  const loadProgress = ref({ received: 0, total: 0, reliable: false });
   const isInformationModalVisible = ref(false);
   // Shared so that interacting with the map can dismiss the mobile nav panel,
   // which would otherwise cover what the user just tapped.
@@ -467,6 +470,29 @@ export const useLocationStore = defineStore("location", () => {
     }
     requestAbortController.value = new AbortController();
 
+    loadProgress.value = { received: 0, total: 0, reliable: false };
+    let received = 0;
+    let total = 0;
+    let reliable = true;
+
+    /**
+     * Aggregate progress across the per-device requests.
+     *
+     * The total is only meaningful if every request reported a usable one.
+     *
+     * @param {Object} chunk Progress for one chunk
+     */
+    const onProgress = (chunk) => {
+      received += chunk.received;
+      total += chunk.total;
+      reliable = reliable && chunk.reliable;
+      loadProgress.value = {
+        received,
+        total: reliable ? total : 0,
+        reliable,
+      };
+    };
+
     try {
       const history = await bench.timeAsync(
         "api:getLocationHistory",
@@ -475,7 +501,8 @@ export const useLocationStore = defineStore("location", () => {
             targetDevices,
             startDateTime.value,
             endDateTime.value,
-            { signal: requestAbortController.value.signal }
+            { signal: requestAbortController.value.signal },
+            onProgress
           ),
         getLocationHistoryCount
       );
@@ -598,6 +625,7 @@ export const useLocationStore = defineStore("location", () => {
   return {
     isLoading,
     loadError,
+    loadProgress,
     isInformationModalVisible,
     isMobileNavOpen,
     frontendVersion,

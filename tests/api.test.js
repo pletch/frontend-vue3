@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import createFetchMock from "vitest-fetch-mock";
 
 import * as api from "@/api";
@@ -264,5 +264,173 @@ describe("API", () => {
     // so callers crashed on `response.json()` instead of seeing a failure.
     const result = await api.getLastLocations().catch(() => "rejected");
     expect(result).toBe("rejected");
+  });
+
+  test("still decodes correctly without a progress callback", async () => {
+    const body = JSON.stringify({ count: 1, data: [{ tst: 7 }], status: 200 });
+    fetchMocker.mockResponse(body);
+
+    const result = await api.getUserDeviceLocationHistory(
+      "foo",
+      "phone",
+      "1970-01-01T00:00:00",
+      "1970-12-31T23:59:59"
+    );
+    expect(result).toEqual([{ tst: 7 }]);
+  });
+
+  test("decodes multi-byte characters split across chunks", async () => {
+    const body = JSON.stringify({
+      count: 1,
+      data: [{ tst: 1, addr: "Ku\u00dfmaulstra\u00dfe \u2013 M\u00fcnchen" }],
+      status: 200,
+    });
+    fetchMocker.mockResponse(body, {
+      headers: {
+        "content-length": String(new TextEncoder().encode(body).length),
+      },
+    });
+
+    const result = await api.getUserDeviceLocationHistory(
+      "foo",
+      "phone",
+      "1970-01-01T00:00:00",
+      "1970-12-31T23:59:59",
+      {},
+      () => {}
+    );
+    expect(result[0].addr).toBe("Ku\u00dfmaulstra\u00dfe \u2013 M\u00fcnchen");
+  });
+});
+
+describe("streaming progress", () => {
+  /**
+   * Stub fetch with a response whose body is delivered in chunks.
+   *
+   * The fetch mock used elsewhere has no streaming body, so it exercises the
+   * non-streaming fallback rather than this path.
+   *
+   * @param {String} text Response body
+   * @param {Object} [options] Options
+   * @param {Number} [options.chunkSize] Bytes per chunk
+   * @param {String} [options.contentLength] Content-Length header to report
+   * @returns {Uint8Array} The encoded body
+   */
+  function stubStreamingFetch(text, { chunkSize = 8, contentLength } = {}) {
+    const encoded = new TextEncoder().encode(text);
+    const chunks = [];
+    for (let i = 0; i < encoded.length; i += chunkSize) {
+      chunks.push(encoded.slice(i, i + chunkSize));
+    }
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name) =>
+            name.toLowerCase() === "content-length"
+              ? contentLength === undefined
+                ? String(encoded.length)
+                : contentLength
+              : null,
+        },
+        body: {
+          getReader() {
+            let index = 0;
+            return {
+              read: async () =>
+                index < chunks.length
+                  ? { done: false, value: chunks[index++] }
+                  : { done: true, value: undefined },
+            };
+          },
+        },
+        json: async () => JSON.parse(text),
+      }))
+    );
+    return encoded;
+  }
+
+  /**
+   * Fetch a history with a progress collector attached.
+   *
+   * @returns {Promise<Object>} Result and collected progress chunks
+   */
+  async function fetchHistory() {
+    const chunks = [];
+    const data = await api.getUserDeviceLocationHistory(
+      "foo",
+      "phone",
+      "1970-01-01T00:00:00",
+      "1970-12-31T23:59:59",
+      {},
+      (chunk) => chunks.push(chunk)
+    );
+    return { data, chunks };
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  test("received bytes are deltas summing to the whole body", async () => {
+    const body = JSON.stringify({ count: 1, data: [{ tst: 1 }], status: 200 });
+    const encoded = stubStreamingFetch(body);
+
+    const { data, chunks } = await fetchHistory();
+    expect(data).toEqual([{ tst: 1 }]);
+    expect(chunks.length).toBeGreaterThan(1);
+    expect(chunks.reduce((n, c) => n + c.received, 0)).toBe(encoded.length);
+  });
+
+  test("the total is contributed exactly once", async () => {
+    const body = JSON.stringify({ count: 1, data: [{ tst: 1 }], status: 200 });
+    const encoded = stubStreamingFetch(body);
+
+    const { chunks } = await fetchHistory();
+    // Aggregating across requests requires a delta, not a repeated total.
+    expect(chunks.reduce((n, c) => n + c.total, 0)).toBe(encoded.length);
+    expect(chunks.filter((c) => c.total > 0)).toHaveLength(1);
+  });
+
+  test("progress is reliable when content-length matches", async () => {
+    stubStreamingFetch(JSON.stringify({ count: 0, data: [], status: 200 }));
+    const { chunks } = await fetchHistory();
+    expect(chunks.every((c) => c.reliable)).toBe(true);
+  });
+
+  test("progress is unreliable without a content-length", async () => {
+    stubStreamingFetch(JSON.stringify({ count: 0, data: [], status: 200 }), {
+      contentLength: null,
+    });
+    const { chunks } = await fetchHistory();
+    expect(chunks.every((c) => c.reliable === false)).toBe(true);
+    expect(chunks.reduce((n, c) => n + c.total, 0)).toBe(0);
+  });
+
+  test("progress goes unreliable when the body exceeds it", async () => {
+    // A compressed response declares the wire length but yields more decoded
+    // bytes, which would otherwise drive the bar past 100%.
+    stubStreamingFetch(JSON.stringify({ count: 0, data: [], status: 200 }), {
+      contentLength: "5",
+    });
+    const { chunks } = await fetchHistory();
+    expect(chunks[chunks.length - 1].reliable).toBe(false);
+  });
+
+  test("decodes multi-byte characters split across chunks", async () => {
+    const addr = "Kußmaulstraße – München";
+    const body = JSON.stringify({
+      count: 1,
+      data: [{ tst: 1, addr }],
+      status: 200,
+    });
+    // A chunk size of 3 guarantees multi-byte sequences are split.
+    stubStreamingFetch(body, { chunkSize: 3 });
+
+    const { data } = await fetchHistory();
+    expect(data[0].addr).toBe(addr);
   });
 });

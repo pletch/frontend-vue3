@@ -45,6 +45,7 @@ Dates are in UTC.
 - Mobile: the map zoom and compass buttons are hidden on touch devices, where pinch-zoom is the natural gesture and they only take up a corner of an already small map.
 - Mobile: added safe-area handling (`viewport-fit=cover` plus insets) so the playback bar and map attribution clear the home indicator on notched phones.
 - Mobile: the route playback bar spans the available width and sits above the map attribution instead of colliding with it.
+- The loading dialog now shows a byte-level progress bar for the history request instead of an unchanging spinner, falling back to the amount received when the recorder does not provide a usable `Content-Length`.
 ### Fixed
 - Mobile: opening a device popup no longer leaves it clipped behind the navigation panel; the panel now closes when a popup opens or the map is tapped.
 - Mobile: the date range is no longer truncated. It now fits down to 320px-wide screens, verified at 320, 360, 390 and 430px.
