@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { buildDateSlices, mergeHistorySlice } from "@/history";
+import { Track } from "@/track";
 
 describe("buildDateSlices", () => {
   test("returns one slice when the range is shorter than a slice", () => {
@@ -73,71 +74,92 @@ describe("buildDateSlices", () => {
 describe("mergeHistorySlice", () => {
   const loc = (tst) => ({ tst, lat: 1, lon: 2 });
 
-  test("adds a device that was not present", () => {
+  /**
+   * Read the timestamps of a track back out, for comparison.
+   *
+   * @param {Track} track Track to read
+   * @returns {Number[]} Timestamps, oldest first
+   */
+  const timestamps = (track) =>
+    [...Array(track.length)].map((_, i) => track.at(i).tst);
+
+  test("creates a track for a device that was not present", () => {
     const history = {};
-    const added = mergeHistorySlice(history, {
+    const ranges = mergeHistorySlice(history, {
       alice: { phone: [loc(1), loc(2)] },
     });
 
-    expect(history.alice.phone.map((l) => l.tst)).toEqual([1, 2]);
-    expect(added).toHaveLength(2);
+    expect(history.alice.phone).toBeInstanceOf(Track);
+    expect(timestamps(history.alice.phone)).toEqual([1, 2]);
+    expect(ranges).toEqual([{ track: history.alice.phone, from: 0, to: 2 }]);
   });
 
-  test("appends later points to an existing device", () => {
-    const history = { alice: { phone: [loc(1), loc(2)] } };
-    mergeHistorySlice(history, { alice: { phone: [loc(3), loc(4)] } });
+  test("appends later points to an existing track", () => {
+    const history = {
+      alice: { phone: Track.from("alice", "phone", [loc(1), loc(2)]) },
+    };
+    const ranges = mergeHistorySlice(history, {
+      alice: { phone: [loc(3), loc(4)] },
+    });
 
-    expect(history.alice.phone.map((l) => l.tst)).toEqual([1, 2, 3, 4]);
+    expect(timestamps(history.alice.phone)).toEqual([1, 2, 3, 4]);
+    expect(ranges[0]).toMatchObject({ from: 2, to: 4 });
   });
 
   test("drops the duplicate at an inclusive slice boundary", () => {
-    const history = { alice: { phone: [loc(1), loc(2)] } };
-    const added = mergeHistorySlice(history, {
+    const history = {
+      alice: { phone: Track.from("alice", "phone", [loc(1), loc(2)]) },
+    };
+    const ranges = mergeHistorySlice(history, {
       alice: { phone: [loc(2), loc(3)] },
     });
 
-    expect(history.alice.phone.map((l) => l.tst)).toEqual([1, 2, 3]);
-    expect(added).toHaveLength(1);
-    expect(added[0].location.tst).toBe(3);
+    expect(timestamps(history.alice.phone)).toEqual([1, 2, 3]);
+    expect(ranges[0]).toMatchObject({ from: 2, to: 3 });
   });
 
   test("ignores a slice that is entirely older than what is held", () => {
-    const history = { alice: { phone: [loc(5), loc(6)] } };
-    const added = mergeHistorySlice(history, {
+    const history = {
+      alice: { phone: Track.from("alice", "phone", [loc(5), loc(6)]) },
+    };
+    const ranges = mergeHistorySlice(history, {
       alice: { phone: [loc(1), loc(2)] },
     });
 
-    expect(history.alice.phone.map((l) => l.tst)).toEqual([5, 6]);
-    expect(added).toHaveLength(0);
+    expect(timestamps(history.alice.phone)).toEqual([5, 6]);
+    expect(ranges).toEqual([]);
+  });
+
+  test("compares every incoming point against the pre-existing tail", () => {
+    // The comparison point must be captured before appending, otherwise each
+    // push would move the boundary and later duplicates would slip through.
+    const history = {
+      alice: { phone: Track.from("alice", "phone", [loc(5)]) },
+    };
+    mergeHistorySlice(history, { alice: { phone: [loc(3), loc(5), loc(7)] } });
+
+    expect(timestamps(history.alice.phone)).toEqual([5, 7]);
   });
 
   test("keeps devices and users independent", () => {
-    const history = { alice: { phone: [loc(1)] } };
+    const history = {
+      alice: { phone: Track.from("alice", "phone", [loc(1)]) },
+    };
     mergeHistorySlice(history, {
       alice: { phone: [loc(2)], tablet: [loc(1)] },
       bob: { watch: [loc(9)] },
     });
 
-    expect(history.alice.phone.map((l) => l.tst)).toEqual([1, 2]);
-    expect(history.alice.tablet.map((l) => l.tst)).toEqual([1]);
-    expect(history.bob.watch.map((l) => l.tst)).toEqual([9]);
-  });
-
-  test("reports what it added, in order", () => {
-    const history = {};
-    const added = mergeHistorySlice(history, {
-      alice: { phone: [loc(1), loc(2), loc(3)] },
-    });
-
-    expect(added.map((a) => a.location.tst)).toEqual([1, 2, 3]);
-    expect(added.every((a) => a.user === "alice" && a.device === "phone")).toBe(
-      true
-    );
+    expect(timestamps(history.alice.phone)).toEqual([1, 2]);
+    expect(timestamps(history.alice.tablet)).toEqual([1]);
+    expect(timestamps(history.bob.watch)).toEqual([9]);
   });
 
   test("handles an empty slice", () => {
-    const history = { alice: { phone: [loc(1)] } };
-    expect(mergeHistorySlice(history, {})).toHaveLength(0);
-    expect(history.alice.phone).toHaveLength(1);
+    const history = {
+      alice: { phone: Track.from("alice", "phone", [loc(1)]) },
+    };
+    expect(mergeHistorySlice(history, {})).toEqual([]);
+    expect(history.alice.phone.length).toBe(1);
   });
 });

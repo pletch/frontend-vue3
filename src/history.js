@@ -10,6 +10,7 @@
 import moment from "moment";
 
 import { DATE_TIME_FORMAT } from "@/constants";
+import { Track } from "@/track";
 
 /**
  * Split a date range into consecutive slices.
@@ -60,41 +61,49 @@ export function buildDateSlices(start, end, days, maxSlices = 32) {
 }
 
 /**
- * Merge a slice of history into an existing structure.
+ * Merge a slice of history into an existing set of tracks.
  *
  * Slices arrive oldest first, so a slice's points belong after everything
  * already held for that device. Any points at or before the newest point
  * already held are dropped, which removes the duplicate that appears when the
  * recorder treats both ends of a range as inclusive.
  *
- * @param {Object} history Existing history, mutated in place
- * @param {Object} slice Newly fetched history for the same devices
- * @returns {OTLocation[]} The locations that were actually added, in order
+ * @param {Object} history Tracks keyed by user, then device, mutated in place
+ * @param {Object} slice Raw history for the same devices, from the API
+ * @returns {Array<{track: Track, from: Number, to: Number}>} Appended ranges
  */
 export function mergeHistorySlice(history, slice) {
-  const added = [];
+  const ranges = [];
 
   Object.keys(slice).forEach((user) => {
     if (!history[user]) {
       history[user] = {};
     }
     Object.keys(slice[user]).forEach((device) => {
-      const existing = history[user][device] || [];
-      const incoming = slice[user][device] || [];
-      const lastTst = existing.length
-        ? existing[existing.length - 1].tst
-        : -Infinity;
-
-      const fresh = incoming.filter((location) => location.tst > lastTst);
-      if (fresh.length === 0) {
-        history[user][device] = existing;
-        return;
+      let track = history[user][device];
+      if (!track) {
+        track = new Track(user, device);
+        history[user][device] = track;
       }
 
-      history[user][device] = existing.concat(fresh);
-      fresh.forEach((location) => added.push({ user, device, location }));
+      // Captured before appending, so every point in this slice is compared
+      // against what was held before it started.
+      const lastTst = track.lastTst();
+      const incoming = slice[user][device] || [];
+      const from = track.length;
+
+      track.reserve(track.length + incoming.length);
+      for (let i = 0; i < incoming.length; i++) {
+        if (incoming[i].tst > lastTst) {
+          track.push(incoming[i]);
+        }
+      }
+
+      if (track.length > from) {
+        ranges.push({ track, from, to: track.length });
+      }
     });
   });
 
-  return added;
+  return ranges;
 }

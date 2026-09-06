@@ -16,7 +16,7 @@ async function storeWithConfig(config) {
   const { useLocationStore } = await import("@/store/location");
   setActivePinia(createPinia());
   const store = useLocationStore();
-  store.locationHistory = {};
+  store.setLocationHistory({});
   return store;
 }
 
@@ -27,7 +27,7 @@ describe("mapGeoData configuration handling", () => {
 
   test("drops points worse than filters.minAccuracy", async () => {
     const store = await storeWithConfig({ filters: { minAccuracy: 50 } });
-    store.locationHistory = {
+    store.setLocationHistory({
       alice: {
         phone: [
           { tst: 1, lat: 1, lon: 1, acc: 10 },
@@ -35,8 +35,7 @@ describe("mapGeoData configuration handling", () => {
           { tst: 3, lat: 3, lon: 3, acc: 20 },
         ],
       },
-    };
-    store.notifyHistoryChanged();
+    });
 
     expect(store.mapGeoData.count).toBe(2);
     expect(store.mapGeoData.segments[0].coordinates).toEqual([
@@ -54,15 +53,14 @@ describe("mapGeoData configuration handling", () => {
 
   test("keeps every point when minAccuracy is null", async () => {
     const store = await storeWithConfig({ filters: { minAccuracy: null } });
-    store.locationHistory = {
+    store.setLocationHistory({
       alice: {
         phone: [
           { tst: 1, lat: 1, lon: 1, acc: 10 },
           { tst: 2, lat: 2, lon: 2, acc: 9999 },
         ],
       },
-    };
-    store.notifyHistoryChanged();
+    });
 
     expect(store.mapGeoData.count).toBe(2);
   });
@@ -70,7 +68,7 @@ describe("mapGeoData configuration handling", () => {
   // `maxPointDistance` is in metres, matching `distanceBetweenCoordinates`.
   test("splits the line on a jump beyond map.maxPointDistance", async () => {
     const store = await storeWithConfig({ map: { maxPointDistance: 1000 } });
-    store.locationHistory = {
+    store.setLocationHistory({
       alice: {
         phone: [
           { tst: 1, lat: 0, lon: 0 },
@@ -80,8 +78,7 @@ describe("mapGeoData configuration handling", () => {
           { tst: 4, lat: 10.001, lon: 0 },
         ],
       },
-    };
-    store.notifyHistoryChanged();
+    });
 
     const { segments } = store.mapGeoData;
     expect(segments).toHaveLength(2);
@@ -93,15 +90,14 @@ describe("mapGeoData configuration handling", () => {
 
   test("does not split when maxPointDistance is null", async () => {
     const store = await storeWithConfig({ map: { maxPointDistance: null } });
-    store.locationHistory = {
+    store.setLocationHistory({
       alice: {
         phone: [
           { tst: 1, lat: 0, lon: 0 },
           { tst: 2, lat: 10, lon: 0 },
         ],
       },
-    };
-    store.notifyHistoryChanged();
+    });
 
     expect(store.mapGeoData.segments).toHaveLength(1);
     expect(store.mapGeoData.segments[0].coordinates).toHaveLength(2);

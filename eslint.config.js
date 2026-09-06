@@ -28,6 +28,9 @@ export default [
       // Catches an identifier that was never imported. The build happily
       // emits those and they only fail at runtime.
       "no-undef": "error",
+      // `no-undef` does not see template expressions, so a stale reference
+      // there fails silently at runtime instead of erroring. This catches it.
+      "vue/no-undef-properties": "error",
       "no-console": process.env.NODE_ENV === "production" ? "error" : "warn",
       "no-debugger": process.env.NODE_ENV === "production" ? "error" : "warn",
       "max-len": [

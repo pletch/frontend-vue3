@@ -258,3 +258,31 @@ A streaming JSON _decoder_, which would let points appear as they arrive rather
 than after the body is complete, is still outstanding. Byte progress addresses
 the "no idea whether it is nearly done" problem; incremental decoding would
 additionally shorten time-to-first-pixel.
+
+## Columnar history storage
+
+The location history is the largest thing the app retains. Holding it as one
+JavaScript object per location was measured at roughly 33 MB per 250,000
+locations when their strings are shared, and 61 MB when each record carries
+distinct strings as a real recorder response does.
+
+It is now stored column by column in typed arrays (`src/track.js`), keeping
+only the fields the app reads from history. Popups are shown for last-known
+locations and for the playback marker, never for a history point, so a full
+record is only ever needed one at a time and is materialised on demand by
+`Track.at()`.
+
+Measured in the app, median of three runs at 250,000 points:
+
+| Retained heap  | Before | After |
+| -------------- | ------ | ----- |
+| 250,000 points | 59 MB  | 35 MB |
+
+That is a 1.7x reduction rather than the 5x the isolated measurement of the
+raw history suggested, and the gap is worth recording. The derived rendering
+data is now the larger share: `mapGeoData` holds one two-element `[lng, lat]`
+array per point, because that is what a GeoJSON source requires. Those arrays
+are untouched by this change and now dominate what is retained.
+
+Reducing them further would mean not handing MapLibre GeoJSON at all, which is
+a much larger change than this one.

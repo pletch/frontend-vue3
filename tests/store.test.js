@@ -4,6 +4,16 @@ import { setActivePinia, createPinia } from "pinia";
 import { useLocationStore } from "@/store/location";
 
 /**
+ * Read the timestamps of a track back out, for comparison.
+ *
+ * @param {Track} track Track to read
+ * @returns {Number[]} Timestamps, oldest first
+ */
+function timestamps(track) {
+  return [...Array(track.length)].map((_, i) => track.at(i).tst);
+}
+
+/**
  * Build a minimal location object.
  *
  * @param {Number} tst Timestamp
@@ -30,19 +40,19 @@ describe("appendLocationToHistory", () => {
     vi.useFakeTimers();
     setActivePinia(createPinia());
     store = useLocationStore();
-    store.locationHistory = {};
+    store.setLocationHistory({});
   });
 
   test("creates the user and device entries when missing", () => {
     store.appendLocationToHistory(location(100));
-    expect(store.locationHistory.alice.phone.map((l) => l.tst)).toEqual([100]);
+    expect(timestamps(store.locationHistory.alice.phone)).toEqual([100]);
   });
 
   test("appends a newer point to the end", () => {
     [100, 200, 300].forEach((tst) =>
       store.appendLocationToHistory(location(tst))
     );
-    expect(store.locationHistory.alice.phone.map((l) => l.tst)).toEqual([
+    expect(timestamps(store.locationHistory.alice.phone)).toEqual([
       100, 200, 300,
     ]);
   });
@@ -52,7 +62,7 @@ describe("appendLocationToHistory", () => {
       store.appendLocationToHistory(location(tst))
     );
     store.appendLocationToHistory(location(200));
-    expect(store.locationHistory.alice.phone.map((l) => l.tst)).toEqual([
+    expect(timestamps(store.locationHistory.alice.phone)).toEqual([
       100, 200, 300, 400,
     ]);
   });
@@ -60,7 +70,7 @@ describe("appendLocationToHistory", () => {
   test("inserts a point older than everything held at the front", () => {
     [200, 300].forEach((tst) => store.appendLocationToHistory(location(tst)));
     store.appendLocationToHistory(location(100));
-    expect(store.locationHistory.alice.phone.map((l) => l.tst)).toEqual([
+    expect(timestamps(store.locationHistory.alice.phone)).toEqual([
       100, 200, 300,
     ]);
   });
@@ -71,16 +81,21 @@ describe("appendLocationToHistory", () => {
     );
     store.appendLocationToHistory(location(200, { lat: 99 }));
 
-    const history = store.locationHistory.alice.phone;
-    expect(history.map((l) => l.tst)).toEqual([100, 200, 300]);
-    expect(history.find((l) => l.tst === 200).lat).toBe(99);
+    const track = store.locationHistory.alice.phone;
+    expect(timestamps(track)).toEqual([100, 200, 300]);
+    expect(track.at(1).lat).toBe(99);
   });
 
-  test("replaces the device array so consumers see a new identity", () => {
+  test("publishes a new derivation so consumers see the change", () => {
     store.appendLocationToHistory(location(100));
-    const before = store.locationHistory.alice.phone;
+    const before = store.mapGeoData;
+
     store.appendLocationToHistory(location(200));
-    expect(store.locationHistory.alice.phone).not.toBe(before);
+
+    // The track is mutated in place, so identity cannot signal a change; the
+    // published derivation is replaced instead.
+    expect(store.mapGeoData).not.toBe(before);
+    expect(store.mapGeoData.count).toBe(2);
   });
 
   test("keeps devices of the same user independent", () => {
@@ -101,14 +116,18 @@ describe("appendLocationToHistory", () => {
 
   test("selectedDeviceHistory follows the current selection", () => {
     store.appendLocationToHistory(location(100));
-    expect(store.selectedDeviceHistory).toEqual([]);
+    expect(store.selectedDeviceHistory).toMatchObject({
+      track: null,
+      length: 0,
+    });
 
     store.selectedUsers = ["alice"];
     store.selectedDevice = "phone";
-    expect(store.selectedDeviceHistory).toHaveLength(1);
+    expect(store.selectedDeviceHistory.length).toBe(1);
 
     store.appendLocationToHistory(location(200));
-    expect(store.selectedDeviceHistory).toHaveLength(2);
+    expect(store.selectedDeviceHistory.length).toBe(2);
+    expect(store.selectedDeviceHistory.track.at(1).tst).toBe(200);
   });
 
   test("only a wholesale replacement bumps historyReloadVersion", () => {
@@ -128,7 +147,7 @@ describe("mapGeoData", () => {
     vi.useFakeTimers();
     setActivePinia(createPinia());
     store = useLocationStore();
-    store.locationHistory = {};
+    store.setLocationHistory({});
   });
 
   test("is empty for an empty history", () => {
@@ -141,15 +160,14 @@ describe("mapGeoData", () => {
   });
 
   test("builds one segment per device with [lng, lat] coordinates", () => {
-    store.locationHistory = {
+    store.setLocationHistory({
       alice: {
         phone: [
           { tst: 1, lat: 10, lon: 20, acc: 5 },
           { tst: 2, lat: 11, lon: 21, acc: 5 },
         ],
       },
-    };
-    store.notifyHistoryChanged();
+    });
 
     const { segments } = store.mapGeoData;
     expect(segments).toHaveLength(1);
@@ -161,10 +179,9 @@ describe("mapGeoData", () => {
   });
 
   test("drops a single-point segment from the line output", () => {
-    store.locationHistory = {
+    store.setLocationHistory({
       alice: { phone: [{ tst: 1, lat: 10, lon: 20, acc: 5 }] },
-    };
-    store.notifyHistoryChanged();
+    });
 
     expect(store.mapGeoData.segments).toHaveLength(0);
     // The point is still available for the points and heatmap layers.
@@ -173,14 +190,13 @@ describe("mapGeoData", () => {
   });
 
   test("groups points by user across devices", () => {
-    store.locationHistory = {
+    store.setLocationHistory({
       alice: {
         phone: [{ tst: 1, lat: 1, lon: 1 }],
         tablet: [{ tst: 2, lat: 2, lon: 2 }],
       },
       bob: { phone: [{ tst: 3, lat: 3, lon: 3 }] },
-    };
-    store.notifyHistoryChanged();
+    });
 
     const { pointsByUser } = store.mapGeoData;
     expect(pointsByUser.get("alice")).toHaveLength(2);
@@ -188,7 +204,7 @@ describe("mapGeoData", () => {
   });
 
   test("computes bounds over every point", () => {
-    store.locationHistory = {
+    store.setLocationHistory({
       alice: {
         phone: [
           { tst: 1, lat: 10, lon: -5 },
@@ -196,8 +212,7 @@ describe("mapGeoData", () => {
           { tst: 3, lat: 7, lon: 12 },
         ],
       },
-    };
-    store.notifyHistoryChanged();
+    });
 
     expect(store.mapGeoData.bounds).toEqual({
       minLat: -3,
@@ -208,15 +223,14 @@ describe("mapGeoData", () => {
   });
 
   test("collects points of interest with their coordinates", () => {
-    store.locationHistory = {
+    store.setLocationHistory({
       alice: {
         phone: [
           { tst: 1, lat: 1, lon: 2 },
           { tst: 2, lat: 3, lon: 4, poi: "Home" },
         ],
       },
-    };
-    store.notifyHistoryChanged();
+    });
 
     expect(store.mapGeoData.pois).toEqual([
       { user: "alice", poi: "Home", coordinate: [4, 3] },
@@ -224,15 +238,14 @@ describe("mapGeoData", () => {
   });
 
   test("shares coordinate arrays between segments and point layers", () => {
-    store.locationHistory = {
+    store.setLocationHistory({
       alice: {
         phone: [
           { tst: 1, lat: 1, lon: 2 },
           { tst: 2, lat: 3, lon: 4 },
         ],
       },
-    };
-    store.notifyHistoryChanged();
+    });
 
     // The same coordinate objects back both outputs, rather than each layer
     // allocating its own copy.
@@ -241,15 +254,14 @@ describe("mapGeoData", () => {
   });
 
   test("picks up a live append", () => {
-    store.locationHistory = {
+    store.setLocationHistory({
       alice: {
         phone: [
           { tst: 1, lat: 1, lon: 2 },
           { tst: 2, lat: 3, lon: 4 },
         ],
       },
-    };
-    store.notifyHistoryChanged();
+    });
     expect(store.mapGeoData.count).toBe(2);
 
     store.appendLocationToHistory({
@@ -271,7 +283,7 @@ describe("incremental derivation matches a full rebuild", () => {
     vi.useFakeTimers();
     setActivePinia(createPinia());
     store = useLocationStore();
-    store.locationHistory = {};
+    store.setLocationHistory({});
   });
 
   /**
@@ -412,7 +424,7 @@ describe("multi-user selection", () => {
     vi.useFakeTimers();
     setActivePinia(createPinia());
     store = useLocationStore();
-    store.locationHistory = {};
+    store.setLocationHistory({});
     store.users = ["alice", "bob", "carol"];
     store.devices = {
       alice: ["phone"],

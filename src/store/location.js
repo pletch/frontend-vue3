@@ -13,6 +13,7 @@ import {
 } from "@/util";
 import * as bench from "@/bench";
 import { buildDateSlices, mergeHistorySlice } from "@/history";
+import { Track, tracksFromHistory } from "@/track";
 
 function formatInitialDate(date) {
   return (date instanceof Date ? date.toISOString() : date).slice(0, 19);
@@ -174,19 +175,22 @@ export const useLocationStore = defineStore("location", () => {
   }
 
   /**
-   * Extend the derivation with one location, assumed to come after everything
-   * already recorded for that device.
+   * Extend the derivation with one point of a track, assumed to come after
+   * everything already recorded for that device.
    *
-   * @param {User} user Username
-   * @param {Device} device Device name
-   * @param {OTLocation} location Location to add
+   * @param {Track} track Track holding the point
+   * @param {Number} index Index of the point within the track
    */
-  function extendDerived(user, device, location) {
-    if (minAccuracy !== null && location.acc > minAccuracy) {
+  function extendDerived(track, index) {
+    // NaN marks an unreported accuracy, and NaN comparisons are false, so an
+    // unreported value is kept just as a missing field used to be.
+    if (minAccuracy !== null && track.acc[index] > minAccuracy) {
       return;
     }
 
-    const { lat, lon } = location;
+    const lat = track.lat[index];
+    const lon = track.lon[index];
+    const { user, device } = track;
     const key = `${user}\u0000${device}`;
     let cursor = derived.devices.get(key);
     if (!cursor) {
@@ -226,8 +230,9 @@ export const useLocationStore = defineStore("location", () => {
     if (lon < bounds.minLng) bounds.minLng = lon;
     if (lon > bounds.maxLng) bounds.maxLng = lon;
 
-    if (location.poi) {
-      derived.pois.push({ user, poi: location.poi, coordinate });
+    const poi = track.poi.get(index);
+    if (poi) {
+      derived.pois.push({ user, poi, coordinate });
     }
 
     cursor.lastLatLng = { lat, lng: lon };
@@ -242,9 +247,9 @@ export const useLocationStore = defineStore("location", () => {
 
     Object.keys(history).forEach((user) => {
       Object.keys(history[user]).forEach((device) => {
-        const locations = history[user][device];
-        for (let i = 0; i < locations.length; i++) {
-          extendDerived(user, device, locations[i]);
+        const track = history[user][device];
+        for (let i = 0; i < track.length; i++) {
+          extendDerived(track, i);
         }
       });
     });
@@ -266,15 +271,34 @@ export const useLocationStore = defineStore("location", () => {
     return (user) => colors.get(user) || getUserColor(user);
   });
 
+  /**
+   * The track for the current single-user, single-device selection.
+   *
+   * A fresh wrapper is returned on every recompute: the track itself is
+   * mutated in place, so its identity never changes and consumers comparing by
+   * identity would otherwise never see new points.
+   *
+   * @returns {{track: Track|null, length: Number}} Current track and its size
+   */
   const selectedDeviceHistory = computed(() => {
-    if (!selectedUser.value || !selectedDevice.value) {
-      return [];
-    }
-    const userHistory = locationHistory.value[selectedUser.value];
-    return (userHistory && userHistory[selectedDevice.value]) || [];
+    const user = selectedUser.value;
+    const device = selectedDevice.value;
+    const userHistory = user ? locationHistory.value[user] : null;
+    const track = (userHistory && device && userHistory[device]) || null;
+    return { track, length: track ? track.length : 0 };
   });
 
   // Actions
+  /**
+   * Replace the whole history from a raw API response.
+   *
+   * @param {Object} history Raw history keyed by user, then device
+   */
+  function setLocationHistory(history) {
+    locationHistory.value = tracksFromHistory(history);
+    notifyHistoryChanged(true);
+  }
+
   /**
    * Signal that the location history changed.
    *
@@ -372,36 +396,12 @@ export const useLocationStore = defineStore("location", () => {
   }
 
   /**
-   * Find the index at which a timestamp should be inserted to keep an array of
-   * locations sorted oldest first.
+   * Insert a single incoming location into the history.
    *
-   * @param {OTLocation[]} locations Sorted array of locations
-   * @param {Number} tst Timestamp to place
-   * @returns {Number} Insertion index
-   */
-  function findInsertIndex(locations, tst) {
-    let low = 0;
-    let high = locations.length;
-    while (low < high) {
-      const mid = (low + high) >>> 1;
-      if (locations[mid].tst < tst) {
-        low = mid + 1;
-      } else {
-        high = mid;
-      }
-    }
-    return low;
-  }
-
-  /**
-   * Insert a single location into the history, keeping it sorted by timestamp.
-   *
-   * The common case is a new point that is newer than everything already held,
-   * so appending is checked first. Anything else is placed with a binary
-   * search, which avoids re-sorting the entire range for every message.
-   *
-   * The device's array is replaced rather than mutated so that consumers
-   * comparing by identity see the change.
+   * The common case is a point newer than everything already held, which
+   * appends and extends the derivation in constant time. Anything else is
+   * placed by binary search and forces a rebuild, since it invalidates the
+   * tail of the derivation.
    *
    * @param {OTLocation} location Location to insert
    */
@@ -411,40 +411,30 @@ export const useLocationStore = defineStore("location", () => {
     if (!history[username]) {
       history[username] = {};
     }
-    const current = history[username][device] || [];
-    const last = current[current.length - 1];
-
-    let next;
-    let appended = false;
-    if (!last || last.tst < location.tst) {
-      next = current.concat(location);
-      appended = true;
-    } else {
-      const index = findInsertIndex(current, location.tst);
-      if (current[index] && current[index].tst === location.tst) {
-        // Replace an update for a timestamp we already hold.
-        next = current.slice();
-        next[index] = location;
-      } else {
-        next = current.slice(0, index).concat(location, current.slice(index));
-      }
+    let track = history[username][device];
+    if (!track) {
+      track = new Track(username, device);
+      history[username][device] = track;
     }
 
-    history[username][device] = next;
-    triggerRef(locationHistory);
-
-    if (appended) {
-      // The common case: extend the derivation by one point instead of
-      // recomputing it over the whole history.
+    if (location.tst > track.lastTst()) {
+      const index = track.push(location);
+      triggerRef(locationHistory);
       bench.mark("store:extendDerived");
-      extendDerived(username, device, location);
+      extendDerived(track, index);
       bench.measure("store:extendDerived", 1);
       publishDerived();
-    } else {
-      // An out-of-order or replacing point invalidates the tail of the
-      // derivation, so fall back to a full rebuild.
-      rebuildDerived();
+      return;
     }
+
+    const index = track.indexFor(location.tst);
+    if (index < track.length && track.tst[index] === location.tst) {
+      track.set(index, location);
+    } else {
+      track.insert(index, location);
+    }
+    triggerRef(locationHistory);
+    rebuildDerived();
   }
 
   /**
@@ -457,14 +447,20 @@ export const useLocationStore = defineStore("location", () => {
    */
   function appendHistorySlice(slice) {
     bench.mark("store:appendHistorySlice");
-    const added = mergeHistorySlice(locationHistory.value, slice);
-    added.forEach(({ user, device, location }) =>
-      extendDerived(user, device, location)
-    );
+    const ranges = mergeHistorySlice(locationHistory.value, slice);
+
+    let added = 0;
+    ranges.forEach(({ track, from, to }) => {
+      for (let i = from; i < to; i++) {
+        extendDerived(track, i);
+      }
+      added += to - from;
+    });
+
     triggerRef(locationHistory);
     publishDerived();
-    bench.measure("store:appendHistorySlice", added.length);
-    return added.length;
+    bench.measure("store:appendHistorySlice", added);
+    return added;
   }
 
   async function connectWebsocket() {
@@ -603,8 +599,7 @@ export const useLocationStore = defineStore("location", () => {
           getLocationHistoryCount
         );
         bench.time("store:assignLocationHistory", () => {
-          locationHistory.value = history;
-          notifyHistoryChanged(true);
+          setLocationHistory(history);
         });
       } else {
         // Start from empty and grow, so the map draws each slice as it lands
@@ -665,34 +660,31 @@ export const useLocationStore = defineStore("location", () => {
 
     Object.keys(history).forEach((user) => {
       Object.keys(history[user]).forEach((device) => {
+        const track = history[user][device];
         let lastLatLng = null;
-        history[user][device].forEach((location) => {
-          if (
-            config.filters.minAccuracy !== null &&
-            location.acc > config.filters.minAccuracy
-          )
-            return;
+
+        for (let i = 0; i < track.length; i++) {
+          if (minAccuracy !== null && track.acc[i] > minAccuracy) {
+            continue;
+          }
+          const alt = track.alt[i];
           const latLng = {
-            lat: location.lat,
-            lng: location.lon,
-            alt: location.alt ?? 0,
+            lat: track.lat[i],
+            lng: track.lon[i],
+            alt: Number.isNaN(alt) ? 0 : alt,
           };
+
           if (lastLatLng !== null) {
             const distance = distanceBetweenCoordinates(lastLatLng, latLng);
             const elevationChange = latLng.alt - lastLatLng.alt;
-            if (
-              typeof config.map.maxPointDistance === "number" &&
-              config.map.maxPointDistance > 0
-                ? distance <= config.map.maxPointDistance
-                : true
-            ) {
+            if (maxPointDistance === null || distance <= maxPointDistance) {
               dist += distance;
               if (elevationChange >= 0) gain += elevationChange;
               else loss += -elevationChange;
             }
           }
           lastLatLng = latLng;
-        });
+        }
       });
     });
 
@@ -815,6 +807,7 @@ export const useLocationStore = defineStore("location", () => {
     playbackPoint,
     mapGeoData,
     notifyHistoryChanged,
+    setLocationHistory,
     appendLocationToHistory,
     populateStateFromQuery,
     loadData,

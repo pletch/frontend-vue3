@@ -68,12 +68,10 @@ export async function load(points = 100000, options = {}) {
   // Timed separately: assigning into a deeply reactive ref is where Vue walks
   // the whole dataset and wraps every location object in a Proxy.
   bench.time("store:assign", () => {
-    store.locationHistory = history;
+    // Goes through the same conversion a real load does, so the benchmark
+    // measures the real path.
+    store.setLocationHistory(history);
     store.lastLocations = lastLocations;
-    // Mirror what `getLocationHistory()` does, so that consumers keyed on a
-    // wholesale replacement (such as the map's fit-to-view) behave as they
-    // would for a real load.
-    store.notifyHistoryChanged(true);
   });
   await settle();
   const pipelineMs = bench.measure("bench:pipeline", points);
@@ -111,9 +109,9 @@ export async function tick(count = 50) {
     throw new Error("No location history loaded, call load() first");
   }
 
-  const deviceHistory = store.locationHistory[user][device];
-  const template = deviceHistory[deviceHistory.length - 1];
-  const historyPoints = deviceHistory.length;
+  const track = store.locationHistory[user][device];
+  const template = track.at(track.length - 1);
+  const historyPoints = track.length;
 
   bench.mark("bench:liveUpdates");
   for (let i = 0; i < count; i++) {

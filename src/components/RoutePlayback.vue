@@ -1,5 +1,5 @@
 <template>
-  <div v-if="historyPoints.length > 0" :class="containerClass">
+  <div v-if="history.length > 0" :class="containerClass">
     <button
       @click="togglePlayback"
       class="touch-target shrink-0 text-primary hover:text-blue-600 focus:outline-none transition-colors"
@@ -13,17 +13,14 @@
       <input
         type="range"
         :min="0"
-        :max="historyPoints.length - 1"
+        :max="history.length - 1"
         v-model.number="currentIndex"
         class="w-full h-6 accent-primary"
         :aria-label="$t('Playback position')"
         @input="pausePlayback"
       />
-      <span
-        class="text-xs text-center text-gray-500 mt-1"
-        v-if="historyPoints[currentIndex]"
-      >
-        {{ new Date(historyPoints[currentIndex].tst * 1000).toLocaleString() }}
+      <span v-if="currentTime" class="text-xs text-center text-gray-500 mt-1">
+        {{ currentTime }}
       </span>
     </div>
   </div>
@@ -51,19 +48,31 @@ const currentIndex = ref(0);
 let interval = null;
 
 // The store owns this derivation so that components do not need to know how
-// changes to the (shallow) location history are signalled.
-const historyPoints = computed(() => locationStore.selectedDeviceHistory);
+// changes to the (columnar, in-place mutated) history are signalled.
+const history = computed(() => locationStore.selectedDeviceHistory);
+
+// Locations are materialised one at a time from columnar storage, which is all
+// playback ever needs.
+const currentPoint = computed(() =>
+  history.value.track ? history.value.track.at(currentIndex.value) : null
+);
+
+const currentTime = computed(() =>
+  currentPoint.value
+    ? new Date(currentPoint.value.tst * 1000).toLocaleString()
+    : ""
+);
 
 const togglePlayback = () => {
   if (isPlaying.value) {
     pausePlayback();
   } else {
-    if (currentIndex.value >= historyPoints.value.length - 1) {
+    if (currentIndex.value >= history.value.length - 1) {
       currentIndex.value = 0;
     }
     isPlaying.value = true;
     interval = setInterval(() => {
-      if (currentIndex.value < historyPoints.value.length - 1) {
+      if (currentIndex.value < history.value.length - 1) {
         currentIndex.value++;
       } else {
         pausePlayback();
@@ -81,18 +90,17 @@ onUnmounted(() => {
   if (interval) clearInterval(interval);
 });
 
-watch(currentIndex, (val) => {
-  const point = historyPoints.value[val];
-  if (point) {
-    locationStore.playbackPoint = point;
+watch(currentIndex, () => {
+  if (currentPoint.value) {
+    locationStore.playbackPoint = currentPoint.value;
   }
 });
 
-watch(historyPoints, (newPoints) => {
-  if (newPoints.length === 0) {
+watch(history, (next) => {
+  if (next.length === 0) {
     pausePlayback();
     locationStore.playbackPoint = null;
-  } else if (!newPoints[currentIndex.value]) {
+  } else if (currentIndex.value >= next.length) {
     currentIndex.value = 0;
   }
 });
