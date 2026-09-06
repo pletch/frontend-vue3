@@ -26,8 +26,6 @@ const DEFAULT_CONFIG: Config = {
   ignorePingLocation: true,
   locale: "en-US",
   map: {
-    attribution:
-      '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors',
     circle: {
       color: null,
       fillColor: null,
@@ -38,19 +36,6 @@ const DEFAULT_CONFIG: Config = {
       fillColor: "#fff",
       fillOpacity: 1,
       radius: 4,
-    },
-    controls: {
-      scale: {
-        display: true,
-        imperial: true,
-        maxWidth: 200,
-        metric: true,
-        position: "bottomleft",
-      },
-      zoom: {
-        display: true,
-        position: "topleft",
-      },
     },
     heatmap: {
       blur: 15,
@@ -75,7 +60,6 @@ const DEFAULT_CONFIG: Config = {
       tolerancePixels: 1.5,
     },
     maxPointDistance: null,
-    maxZoom: 21,
     poiMarker: {
       color: null,
       fillColor: null,
@@ -86,10 +70,6 @@ const DEFAULT_CONFIG: Config = {
       color: null,
       fillColor: "transparent",
     },
-    tileSize: 256,
-    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    urlDark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    zoomOffset: 0,
   },
   onLocationChange: {
     fitView: false,

@@ -16,7 +16,6 @@ interface Config {
   ignorePingLocation: boolean;
   locale: string;
   map: {
-    attribution: string;
     circle: {
       color: OptionalColor;
       fillColor: OptionalColor;
@@ -27,19 +26,6 @@ interface Config {
       fillColor: OptionalColor;
       fillOpacity: number;
       radius: number;
-    };
-    controls: {
-      scale: {
-        display: boolean;
-        imperial: boolean;
-        maxWidth: number;
-        metric: boolean;
-        position: string;
-      };
-      zoom: {
-        display: boolean;
-        position: string;
-      };
     };
     heatmap: {
       blur: number;
@@ -64,7 +50,6 @@ interface Config {
       tolerancePixels: number;
     };
     maxPointDistance: number | null;
-    maxZoom: number;
     poiMarker: {
       color: OptionalColor;
       fillColor: OptionalColor;
@@ -75,15 +60,6 @@ interface Config {
       color: OptionalColor;
       fillColor: OptionalColor;
     };
-    tileSize: number;
-    url: string;
-    /**
-     * Unused since the move to MapLibre vector styles, as are
-     * `attribution`, `tileSize`, `zoomOffset`, `maxZoom`, `url` and
-     * `controls`. Declared so existing configs keep type checking.
-     */
-    urlDark: string;
-    zoomOffset: number;
   };
   onLocationChange: {
     fitView: boolean;

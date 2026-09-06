@@ -59,7 +59,9 @@ Dates are in UTC.
 - Corrected the `OTLocation` type declaration, which was missing `motionactivities` and `addr` despite both being used, and marked `_http` and `disptst` required when they are not.
 - Moved `puppeteer` from `dependencies` to `devDependencies`; it is a test-harness dependency and was being installed in production installs.
 - Converted the store, API client, `util` and `config` to TypeScript, alongside the pure-logic modules. Components remain JavaScript.
+
 ### Fixed
+
 - A shared link's map position was ignored. `populateStateFromQuery` ran in the app's `onMounted`, but Vue mounts children before parents, so the map had already been created from the default centre and zoom. It now runs during setup.
 - `populateStateFromQuery` assigned the unparsed latitude string to the map state while parsing only the longitude, and the mirror image for longitude, leaving a string where a number was expected.
 - URL parameters were silently discarded on load: the app mounted before the router had resolved its initial navigation, so `route.query` was empty and every shared link fell back to the defaults. Shared links now restore the date range, users, layers and map position.
@@ -73,6 +75,8 @@ Dates are in UTC.
 - Incoming WebSocket locations are placed with a binary search instead of re-sorting the whole device history on every message.
 
 ### Changed
+
+- Removed configuration options that stopped doing anything when the map moved from Leaflet to MapLibre: `map.attribution`, `map.controls`, `map.maxZoom`, `map.tileSize`, `map.url`, `map.urlDark` and `map.zoomOffset`. Setting them had no effect; they are now gone from the defaults, the types and the documentation.
 
 - Converted core components (`AppHeader.vue`, `Map.vue`, `LDeviceLocationPopup.vue`, `LHeatmap.vue`) to native `<script setup>` syntax.
 - Completely rebuilt map rendering logic to be proxy-aware and avoid infinite recursion crashes with Leaflet and Vue 3.

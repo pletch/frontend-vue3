@@ -32,19 +32,8 @@ window.owntracks.config = {};
 - [`ignorePingLocation`](#ignorepinglocation)
 - [`locale`](#locale)
 - `map`
-  - [`attribution`](#mapattribution)
   - [`circle`](#mapcircle)
   - [`circleMarker`](#mapcirclemarker)
-  - `controls`
-    - `scale`
-      - [`display`](#mapcontrolsscaledisplay)
-      - [`imperial`](#mapcontrolsscaleimperial)
-      - [`maxWidth`](#mapcontrolsscalemaxwidth)
-      - [`metric`](#mapcontrolsscalemetric)
-      - [`position`](#mapcontrolsscaleposition)
-    - `zoom`
-      - [`display`](#mapcontrolszoomdisplay)
-      - [`position`](#mapcontrolszoomposition)
   - `heatmap`
     - [`blur`](#mapheatmapblur)
     - [`gradient`](#mapheatmapgradient)
@@ -61,10 +50,8 @@ window.owntracks.config = {};
   - [`directionArrows`](#mapdirectionarrows)
   - [`blockSoftwareWebGL`](#mapblocksoftwarewebgl)
   - [`maxPointDistance`](#mapmaxpointdistance)
-  - [`maxZoom`](#mapmaxzoom)
   - [`poiMarker`](#mappoimarker)
   - [`polyline`](#mappolyline)
-  - [`url`](#mapurl)
 - `onLocationChange`
   - [`fitView`](#onlocationchangefitview)
   - [`reloadHistory`](#onlocationchangereloadhistory)
@@ -195,22 +182,6 @@ use `en-US` for translations.
 - Type: [`String`]
 - Default: `"en-US"`
 
-### `map.attribution`
-
-Attribution for map tiles.
-
-- Type: [`String`] (may contain HTML)
-- Default: `"&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors"`
-- Example:
-  ```js
-  // Make sure to add proper attribution!
-  window.owntracks.config = {
-    map: {
-      attribution: "Map tiles &copy; MyTileServerProvider",
-    },
-  };
-  ```
-
 ### `map.circle`
 
 Location accuracy indicator configuration. `color` and `fillColor` default to
@@ -240,55 +211,6 @@ Location point marker configuration. `color` defaults to `primaryColor` if `null
     radius: 4
   }
   ```
-
-### `map.controls.scale.display`
-
-Whether to show scale control or not.
-
-- Type: [`Boolean`]
-- Default: `true`
-
-### `map.controls.scale.imperial`
-
-Whether to show an imperial scale (ft) or not.
-
-- Type: [`Boolean`]
-- Default: `true`
-
-### `map.controls.scale.maxWidth`
-
-Maximum width of the scale control in pixels.
-
-- Type: [`Number`]
-- Default: `200`
-
-### `map.controls.scale.metric`
-
-Whether to show an metric scale (m) or not.
-
-- Type: [`Boolean`]
-- Default: `true`
-
-### `map.controls.scale.position`
-
-Scale control position on the map. (Currently deprecated due to MapLibre GL JS migration).
-
-- Type: [`String`]
-- Default: `"bottomleft"`
-
-### `map.controls.zoom.display`
-
-Whether to show zoom control or not.
-
-- Type: [`Boolean`]
-- Default: `true`
-
-### `map.controls.zoom.position`
-
-Zoom control position on the map. (Currently defaults to `top-left` in MapLibre GL JS).
-
-- Type: [`String`]
-- Default: `"topleft"`
 
 ### `map.heatmap.blur`
 
@@ -448,15 +370,6 @@ splitting into separate lines.
   };
   ```
 
-### `map.maxZoom`
-
-Allow zooming closer than the tile server supports, which will result in (slightly)
-blurry tiles on higher zoom levels. Set to the same value as [`map.maxNativeZoom`](#map.maxNativeZoom)
-to disable.
-
-- Type: [`Number`]
-- Default: `21`
-
 ### `map.poiMarker`
 
 POI marker configuration. These properties control the styling of the MapLibre GL JS POI layer.
@@ -484,39 +397,6 @@ Location point marker configuration. `color` defaults to `primaryColor` if `null
     fillColor: "transparent"
   }
   ```
-
-### `map.tileSize`
-
-Size of the tiles in pixels returned by the tile server. Can be used together with
-[`map.zoomOffset`](#map.zoomOffset) to configure bigger tile sizes.
-
-- Type: [`Number`]
-- Default: `256`
-
-### `map.url`
-
-Tile server URL for MapLibre raster base map.
-See [this Wikipedia article](https://en.wikipedia.org/wiki/Tiled_web_map) for more information.
-
-- Type: [`String`]
-- Default: `"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"`
-- Example:
-  ```js
-  // Use dark HDPI tiles from Mapbox
-  window.owntracks.config = {
-    map: {
-      url: "https://api.mapbox.com/styles/v1/mapbox/dark-v10/tiles/{z}/{x}/{y}@2x?access_token=xxxxxxxxxxxxxxxx",
-    },
-  };
-  ```
-
-### `map.zoomOffset`
-
-Offset the zoom level to account for different tile sizes. For example tiles with a
-size of 512x512 need an offset of -1 and for 1024x1024 an offset of -2.
-
-- Type: [`Number`]
-- Default: `0`
 
 ### `onLocationChange.fitView`
 
