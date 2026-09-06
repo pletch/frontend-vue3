@@ -118,3 +118,44 @@ all four GeoJSON `FeatureCollection`s from scratch. Making an update cost
 something proportional to what actually changed, rather than to how much
 history is loaded, is the next piece of work, along with client-side sampling
 and a streaming JSON decode of the initial fetch.
+
+## After: single-pass derivation
+
+The second round collapsed the derivation. The three chained store getters and
+the four separate `FeatureCollection` rebuilds became one pass over the raw
+history (`mapGeoData`) that produces coordinate arrays directly in the shape
+MapLibre consumes.
+
+Two changes did most of the work:
+
+- **One `MultiPoint` feature per user instead of one `Point` feature per
+  location.** MapLibre renders every coordinate of a `MultiPoint` for both
+  circle and heatmap layers, and colour is a per-user property, so 100,000
+  feature objects collapse into one per user. The history points and the
+  heatmap are the same coordinates rendered two ways, so they now share a
+  single source and are uploaded once.
+- **Coordinate arrays are shared.** The same `[lng, lat]` arrays back the line
+  segments and the point layers, so building the feature collections allocates
+  nothing proportional to the number of points. `geojson:points` previously
+  cost 22 ms at 100k to emit 50 features, because it walked the whole filtered
+  history looking for sparse POIs.
+
+`fitView` also uses bounds accumulated during that pass rather than walking
+every point again.
+
+| Dataset | Full load | Per live WebSocket update |
+| ------- | --------- | ------------------------- |
+| 10,000  | 36 ms     | 2.5 ms                    |
+| 100,000 | 113 ms    | 8.3 ms                    |
+
+Building all four feature collections now costs under 0.1 ms at 100k points,
+against 29 ms before. Cumulatively against the original baseline:
+
+| Dataset           | Baseline | Now    | Change |
+| ----------------- | -------- | ------ | ------ |
+| Full load, 100k   | 1281 ms  | 113 ms | 11x    |
+| Live update, 100k | 1015 ms  | 8.3 ms | 122x   |
+
+Per-update cost still grows with history size, because an update re-runs the
+whole pass rather than touching only what changed. Making updates incremental,
+sampling at low zoom, and streaming the initial fetch are the remaining work.

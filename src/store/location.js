@@ -157,6 +157,106 @@ export const useLocationStore = defineStore("location", () => {
     return groups;
   });
 
+  /**
+   * Everything the map needs, derived in a single pass over the history.
+   *
+   * The previous chain walked the data five times: three chained store getters
+   * and then a rebuild of each GeoJSON `FeatureCollection`. This produces the
+   * coordinate arrays once, in the shape MapLibre consumes, so that building
+   * the feature collections costs nothing proportional to the number of points.
+   *
+   * Coordinates are `[lng, lat]` throughout, matching GeoJSON order.
+   *
+   * @returns {Object} Line segments, per-user point arrays, POIs and bounds
+   */
+  const mapGeoData = computed(() => {
+    bench.mark("store:mapGeoData");
+
+    const history = locationHistory.value;
+    const { minAccuracy } = config.filters;
+    const maxPointDistance =
+      typeof config.map.maxPointDistance === "number" &&
+      config.map.maxPointDistance > 0
+        ? config.map.maxPointDistance
+        : null;
+
+    const segments = [];
+    const pointsByUser = new Map();
+    const pois = [];
+    const bounds = {
+      minLat: Infinity,
+      minLng: Infinity,
+      maxLat: -Infinity,
+      maxLng: -Infinity,
+    };
+    let count = 0;
+
+    Object.keys(history).forEach((user) => {
+      let userPoints = pointsByUser.get(user);
+      if (!userPoints) {
+        userPoints = [];
+        pointsByUser.set(user, userPoints);
+      }
+
+      Object.keys(history[user]).forEach((device) => {
+        const locations = history[user][device];
+        let segment = [];
+        let previous = null;
+
+        for (let i = 0; i < locations.length; i++) {
+          const location = locations[i];
+          if (minAccuracy !== null && location.acc > minAccuracy) {
+            continue;
+          }
+
+          const { lat, lon } = location;
+
+          // Break the segment rather than drawing across a large jump.
+          if (
+            maxPointDistance !== null &&
+            previous !== null &&
+            distanceBetweenCoordinates(previous, { lat, lng: lon }) >
+              maxPointDistance
+          ) {
+            if (segment.length > 1) {
+              segments.push({ user, device, coordinates: segment });
+            }
+            segment = [];
+          }
+
+          const coordinate = [lon, lat];
+          segment.push(coordinate);
+          userPoints.push(coordinate);
+
+          if (lat < bounds.minLat) bounds.minLat = lat;
+          if (lat > bounds.maxLat) bounds.maxLat = lat;
+          if (lon < bounds.minLng) bounds.minLng = lon;
+          if (lon > bounds.maxLng) bounds.maxLng = lon;
+
+          if (location.poi) {
+            pois.push({ user, poi: location.poi, coordinate });
+          }
+
+          previous = { lat, lng: lon };
+          count += 1;
+        }
+
+        if (segment.length > 1) {
+          segments.push({ user, device, coordinates: segment });
+        }
+      });
+    });
+
+    bench.measure("store:mapGeoData", count);
+    return {
+      segments,
+      pointsByUser,
+      pois,
+      bounds: count > 0 ? bounds : null,
+      count,
+    };
+  });
+
   const selectedDeviceHistory = computed(() => {
     if (!selectedUser.value || !selectedDevice.value) {
       return [];
@@ -542,6 +642,7 @@ export const useLocationStore = defineStore("location", () => {
     filteredLocationHistory,
     filteredLocationHistoryLatLngs,
     filteredLocationHistoryLatLngGroups,
+    mapGeoData,
     notifyHistoryChanged,
     appendLocationToHistory,
     populateStateFromQuery,

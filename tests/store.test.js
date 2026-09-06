@@ -120,3 +120,146 @@ describe("appendLocationToHistory", () => {
     expect(store.historyReloadVersion).toBe(initial + 1);
   });
 });
+
+describe("mapGeoData", () => {
+  let store;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    setActivePinia(createPinia());
+    store = useLocationStore();
+    store.locationHistory = {};
+  });
+
+  test("is empty for an empty history", () => {
+    expect(store.mapGeoData).toMatchObject({
+      segments: [],
+      pois: [],
+      bounds: null,
+      count: 0,
+    });
+  });
+
+  test("builds one segment per device with [lng, lat] coordinates", () => {
+    store.locationHistory = {
+      alice: {
+        phone: [
+          { tst: 1, lat: 10, lon: 20, acc: 5 },
+          { tst: 2, lat: 11, lon: 21, acc: 5 },
+        ],
+      },
+    };
+    store.notifyHistoryChanged();
+
+    const { segments } = store.mapGeoData;
+    expect(segments).toHaveLength(1);
+    expect(segments[0]).toMatchObject({ user: "alice", device: "phone" });
+    expect(segments[0].coordinates).toEqual([
+      [20, 10],
+      [21, 11],
+    ]);
+  });
+
+  test("drops a single-point segment from the line output", () => {
+    store.locationHistory = {
+      alice: { phone: [{ tst: 1, lat: 10, lon: 20, acc: 5 }] },
+    };
+    store.notifyHistoryChanged();
+
+    expect(store.mapGeoData.segments).toHaveLength(0);
+    // The point is still available for the points and heatmap layers.
+    expect(store.mapGeoData.pointsByUser.get("alice")).toEqual([[20, 10]]);
+    expect(store.mapGeoData.count).toBe(1);
+  });
+
+  test("groups points by user across devices", () => {
+    store.locationHistory = {
+      alice: {
+        phone: [{ tst: 1, lat: 1, lon: 1 }],
+        tablet: [{ tst: 2, lat: 2, lon: 2 }],
+      },
+      bob: { phone: [{ tst: 3, lat: 3, lon: 3 }] },
+    };
+    store.notifyHistoryChanged();
+
+    const { pointsByUser } = store.mapGeoData;
+    expect(pointsByUser.get("alice")).toHaveLength(2);
+    expect(pointsByUser.get("bob")).toHaveLength(1);
+  });
+
+  test("computes bounds over every point", () => {
+    store.locationHistory = {
+      alice: {
+        phone: [
+          { tst: 1, lat: 10, lon: -5 },
+          { tst: 2, lat: -3, lon: 40 },
+          { tst: 3, lat: 7, lon: 12 },
+        ],
+      },
+    };
+    store.notifyHistoryChanged();
+
+    expect(store.mapGeoData.bounds).toEqual({
+      minLat: -3,
+      maxLat: 10,
+      minLng: -5,
+      maxLng: 40,
+    });
+  });
+
+  test("collects points of interest with their coordinates", () => {
+    store.locationHistory = {
+      alice: {
+        phone: [
+          { tst: 1, lat: 1, lon: 2 },
+          { tst: 2, lat: 3, lon: 4, poi: "Home" },
+        ],
+      },
+    };
+    store.notifyHistoryChanged();
+
+    expect(store.mapGeoData.pois).toEqual([
+      { user: "alice", poi: "Home", coordinate: [4, 3] },
+    ]);
+  });
+
+  test("shares coordinate arrays between segments and point layers", () => {
+    store.locationHistory = {
+      alice: {
+        phone: [
+          { tst: 1, lat: 1, lon: 2 },
+          { tst: 2, lat: 3, lon: 4 },
+        ],
+      },
+    };
+    store.notifyHistoryChanged();
+
+    // The same coordinate objects back both outputs, rather than each layer
+    // allocating its own copy.
+    const { segments, pointsByUser } = store.mapGeoData;
+    expect(segments[0].coordinates[0]).toBe(pointsByUser.get("alice")[0]);
+  });
+
+  test("picks up a live append", () => {
+    store.locationHistory = {
+      alice: {
+        phone: [
+          { tst: 1, lat: 1, lon: 2 },
+          { tst: 2, lat: 3, lon: 4 },
+        ],
+      },
+    };
+    store.notifyHistoryChanged();
+    expect(store.mapGeoData.count).toBe(2);
+
+    store.appendLocationToHistory({
+      username: "alice",
+      device: "phone",
+      tst: 3,
+      lat: 5,
+      lon: 6,
+    });
+    expect(store.mapGeoData.count).toBe(3);
+    expect(store.mapGeoData.segments[0].coordinates).toHaveLength(3);
+  });
+});

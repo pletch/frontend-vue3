@@ -36,6 +36,7 @@ Dates are in UTC.
 - Added a benchmarking harness (`?bench` or `bench: true`) that measures the location data pipeline and can load synthetic datasets via `window.__otBench`. See `docs/performance.md`.
 - Software WebGL renderers no longer trigger the full-screen "hardware acceleration required" block; they show a dismissible warning instead, restoring the map for users on VMs, over RDP, or without a GPU driver. The old behaviour is available via `map.blockSoftwareWebGL`.
 - Added a connection error banner with a retry action, shown when the recorder cannot be reached.
+- History points and the heatmap now share one map source and are drawn from a single `MultiPoint` feature per user rather than one feature per location, and all map data is derived in a single pass over the history. Building the map's GeoJSON at 100k points went from 29 ms to under 0.1 ms.
 ### Fixed
 - Requests to an unreachable recorder no longer crash the page. `fetchApi()` swallowed network errors and returned `undefined`, and every caller then dereferenced `response.json()`, producing an unhandled `TypeError` and a blank map. Failures now surface as an `ApiError` and are reported in the UI.
 - Live location updates no longer cost time proportional to the entire loaded history. The history is held in a `shallowRef` with explicit invalidation instead of deep reactivity, cutting a live update at 100k points from ~1015 ms to ~40 ms and a full load from ~1281 ms to ~176 ms.

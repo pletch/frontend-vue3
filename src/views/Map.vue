@@ -384,40 +384,47 @@ const renderPlaybackMarker = () => {
 
 const getLinesGeoJSON = () => {
   bench.mark("geojson:lines");
-  const features = locationStore.filteredLocationHistoryLatLngGroups
-    .filter((group) => group.latLngs.length > 1)
-    .map((group) => ({
-      type: "Feature",
-      properties: {
-        color: getUserColor(group.user),
-      },
-      geometry: {
-        type: "LineString",
-        coordinates: group.latLngs.map((ll) => [
-          ll.lng !== undefined ? ll.lng : ll[1],
-          ll.lat !== undefined ? ll.lat : ll[0],
-        ]), // [lng, lat]
-      },
-    }));
-
+  const features = locationStore.mapGeoData.segments.map((segment) => ({
+    type: "Feature",
+    properties: { color: getUserColor(segment.user) },
+    geometry: { type: "LineString", coordinates: segment.coordinates },
+  }));
   bench.measure("geojson:lines", features.length);
   return { type: "FeatureCollection", features };
 };
 
-const getHeatmapGeoJSON = () => {
-  bench.mark("geojson:heatmap");
-  const features = locationStore.filteredLocationHistoryLatLngs.map((ll) => ({
-    type: "Feature",
-    geometry: {
-      type: "Point",
-      coordinates: [
-        ll.lng !== undefined ? ll.lng : ll[1],
-        ll.lat !== undefined ? ll.lat : ll[0],
-      ],
-    },
-  }));
+/**
+ * One MultiPoint feature per user rather than one Point feature per location.
+ *
+ * MapLibre renders every coordinate of a MultiPoint for both circle and
+ * heatmap layers, and colour is a per-user property, so this collapses what
+ * used to be one object per location into one object per user.
+ */
+const getUserPointsGeoJSON = () => {
+  bench.mark("geojson:userPoints");
+  const features = [];
+  let count = 0;
+  locationStore.mapGeoData.pointsByUser.forEach((coordinates, user) => {
+    if (coordinates.length === 0) return;
+    count += coordinates.length;
+    features.push({
+      type: "Feature",
+      properties: { color: getUserColor(user) },
+      geometry: { type: "MultiPoint", coordinates },
+    });
+  });
+  bench.measure("geojson:userPoints", count);
+  return { type: "FeatureCollection", features };
+};
 
-  bench.measure("geojson:heatmap", features.length);
+const getPoiGeoJSON = () => {
+  bench.mark("geojson:poi");
+  const features = locationStore.mapGeoData.pois.map((poi) => ({
+    type: "Feature",
+    properties: { poi: poi.poi, color: getUserColor(poi.user) },
+    geometry: { type: "Point", coordinates: poi.coordinate },
+  }));
+  bench.measure("geojson:poi", features.length);
   return { type: "FeatureCollection", features };
 };
 
@@ -451,284 +458,186 @@ const getAccuracyCirclesGeoJSON = () => {
   return { type: "FeatureCollection", features };
 };
 
-const getPointsGeoJSON = () => {
-  bench.mark("geojson:points");
-  const features = [];
-  Object.keys(locationStore.filteredLocationHistory).forEach((user) => {
-    Object.keys(locationStore.filteredLocationHistory[user]).forEach(
-      (device) => {
-        locationStore.filteredLocationHistory[user][device].forEach(
-          (location) => {
-            if (locationStore.layers.poi && location.poi) {
-              features.push({
-                type: "Feature",
-                properties: {
-                  type: "poi",
-                  poi: location.poi,
-                  color: getUserColor(user),
-                },
-                geometry: {
-                  type: "Point",
-                  coordinates: [location.lon, location.lat],
-                },
-              });
-            }
-            if (locationStore.layers.points) {
-              features.push({
-                type: "Feature",
-                properties: { type: "point", color: getUserColor(user) },
-                geometry: {
-                  type: "Point",
-                  coordinates: [location.lon, location.lat],
-                },
-              });
-            }
-          }
-        );
-      }
-    );
-  });
-  bench.measure("geojson:points", features.length);
-  return { type: "FeatureCollection", features };
-};
-
 const initSourcesAndLayers = () => {
   if (!map) return;
+  if (map.getSource("history-lines")) return;
 
-  // Lines Source & Layer
-  if (!map.getSource("history-lines")) {
-    map.addSource("history-lines", {
-      type: "geojson",
-      data: getLinesGeoJSON(),
-    });
+  const { layers } = locationStore;
+  const visible = (shown) => ({ visibility: shown ? "visible" : "none" });
 
-    map.addLayer({
-      id: "history-lines-layer",
-      type: "line",
-      source: "history-lines",
-      layout: {
-        "line-join": "round",
-        "line-cap": "round",
-        visibility: locationStore.layers.line ? "visible" : "none",
-      },
-      paint: {
-        "line-color": ["get", "color"],
-        "line-width": config.map.polyline?.weight || 3,
-        "line-opacity": config.map.polyline?.opacity || 0.8,
-      },
-    });
-  }
+  // Track lines.
+  map.addSource("history-lines", { type: "geojson", data: getLinesGeoJSON() });
+  map.addLayer({
+    id: "history-lines-layer",
+    type: "line",
+    source: "history-lines",
+    layout: {
+      "line-join": "round",
+      "line-cap": "round",
+      ...visible(layers.line),
+    },
+    paint: {
+      "line-color": ["get", "color"],
+      "line-width": config.map.polyline?.weight || 3,
+      "line-opacity": config.map.polyline?.opacity || 0.8,
+    },
+  });
 
-  // Heatmap Source & Layer
-  if (!map.getSource("history-heatmap")) {
-    map.addSource("history-heatmap", {
-      type: "geojson",
-      data: getHeatmapGeoJSON(),
-    });
+  // The history points and the heatmap are the same coordinates rendered two
+  // ways, so they share a single source and are uploaded to the GPU once.
+  map.addSource("history-points", {
+    type: "geojson",
+    data: getUserPointsGeoJSON(),
+  });
+  map.addLayer({
+    id: "history-heatmap-layer",
+    type: "heatmap",
+    source: "history-points",
+    layout: visible(layers.heatmap),
+    paint: {
+      "heatmap-weight": 1,
+      "heatmap-intensity": 1,
+      "heatmap-color": [
+        "interpolate",
+        ["linear"],
+        ["heatmap-density"],
+        0,
+        "rgba(33,102,172,0)",
+        0.2,
+        "rgb(103,169,207)",
+        0.4,
+        "rgb(209,229,240)",
+        0.6,
+        "rgb(253,219,199)",
+        0.8,
+        "rgb(239,138,98)",
+        1,
+        config.primaryColor || "rgb(178,24,43)",
+      ],
+      "heatmap-radius": config.map.heatmap?.radius || 15,
+      "heatmap-opacity": 0.8,
+    },
+  });
 
-    map.addLayer({
-      id: "history-heatmap-layer",
-      type: "heatmap",
-      source: "history-heatmap",
-      layout: {
-        visibility: locationStore.layers.heatmap ? "visible" : "none",
-      },
-      paint: {
-        "heatmap-weight": 1,
-        "heatmap-intensity": 1,
-        "heatmap-color": [
-          "interpolate",
-          ["linear"],
-          ["heatmap-density"],
-          0,
-          "rgba(33,102,172,0)",
-          0.2,
-          "rgb(103,169,207)",
-          0.4,
-          "rgb(209,229,240)",
-          0.6,
-          "rgb(253,219,199)",
-          0.8,
-          "rgb(239,138,98)",
-          1,
-          config.primaryColor || "rgb(178,24,43)",
-        ],
-        "heatmap-radius": config.map.heatmap?.radius || 15,
-        "heatmap-opacity": 0.8,
-      },
-    });
-  }
+  // Accuracy circles around the last known locations.
+  map.addSource("accuracy-circles", {
+    type: "geojson",
+    data: getAccuracyCirclesGeoJSON(),
+  });
+  map.addLayer({
+    id: "accuracy-circles-layer",
+    type: "fill",
+    source: "accuracy-circles",
+    layout: visible(layers.last),
+    paint: {
+      "fill-color": ["get", "color"],
+      "fill-opacity": config.map.circle?.fillOpacity || 0.2,
+    },
+  });
+  map.addLayer({
+    id: "accuracy-circles-outline",
+    type: "line",
+    source: "accuracy-circles",
+    layout: visible(layers.last),
+    paint: {
+      "line-color": ["get", "color"],
+      "line-width": 1,
+      "line-opacity": 0.5,
+    },
+  });
 
-  // Accuracy Circles Source & Layer
-  if (!map.getSource("accuracy-circles")) {
-    map.addSource("accuracy-circles", {
-      type: "geojson",
-      data: getAccuracyCirclesGeoJSON(),
-    });
-    map.addLayer({
-      id: "accuracy-circles-layer",
-      type: "fill",
-      source: "accuracy-circles",
-      layout: { visibility: locationStore.layers.last ? "visible" : "none" },
-      paint: {
-        "fill-color": ["get", "color"],
-        "fill-opacity": config.map.circle?.fillOpacity || 0.2,
-      },
-    });
-    map.addLayer({
-      id: "accuracy-circles-outline",
-      type: "line",
-      source: "accuracy-circles",
-      layout: { visibility: locationStore.layers.last ? "visible" : "none" },
-      paint: {
-        "line-color": ["get", "color"],
-        "line-width": 1,
-        "line-opacity": 0.5,
-      },
-    });
-  }
+  map.addLayer({
+    id: "history-points-layer",
+    type: "circle",
+    source: "history-points",
+    layout: visible(layers.points),
+    paint: {
+      "circle-radius": config.map.circleMarker?.radius || 4,
+      "circle-color": ["get", "color"],
+      "circle-stroke-width": 1,
+      "circle-stroke-color": "#ffffff",
+    },
+  });
 
-  // Points Source & Layers
-  if (!map.getSource("history-points")) {
-    map.addSource("history-points", {
-      type: "geojson",
-      data: getPointsGeoJSON(),
-    });
-
-    // Regular History Points
-    map.addLayer({
-      id: "history-points-layer",
-      type: "circle",
-      source: "history-points",
-      filter: ["==", "type", "point"],
-      layout: { visibility: locationStore.layers.points ? "visible" : "none" },
-      paint: {
-        "circle-radius": config.map.circleMarker?.radius || 4,
-        "circle-color": ["get", "color"],
-        "circle-stroke-width": 1,
-        "circle-stroke-color": "#ffffff",
-      },
-    });
-
-    // POI Markers
-    map.addLayer({
-      id: "history-poi-layer",
-      type: "circle",
-      source: "history-points",
-      filter: ["==", "type", "poi"],
-      layout: { visibility: locationStore.layers.poi ? "visible" : "none" },
-      paint: {
-        "circle-radius": config.map.poiMarker?.radius || 12,
-        "circle-color": ["get", "color"],
-        "circle-opacity": config.map.poiMarker?.fillOpacity || 0.4,
-        "circle-stroke-width": 2,
-        "circle-stroke-color": ["get", "color"],
-      },
-    });
-
-    // POI Labels
-    map.addLayer({
-      id: "history-poi-label-layer",
-      type: "symbol",
-      source: "history-points",
-      filter: ["==", "type", "poi"],
-      layout: {
-        visibility: locationStore.layers.poi ? "visible" : "none",
-        "text-field": ["get", "poi"],
-        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-        "text-size": 12,
-        "text-offset": [0, -1.5],
-        "text-anchor": "bottom",
-      },
-      paint: {
-        "text-color": "#000000",
-        "text-halo-color": "#ffffff",
-        "text-halo-width": 2,
-      },
-    });
-  }
+  // Points of interest carry a per-point label, so they stay individual
+  // features in their own source.
+  map.addSource("history-poi", { type: "geojson", data: getPoiGeoJSON() });
+  map.addLayer({
+    id: "history-poi-layer",
+    type: "circle",
+    source: "history-poi",
+    layout: visible(layers.poi),
+    paint: {
+      "circle-radius": config.map.poiMarker?.radius || 12,
+      "circle-color": ["get", "color"],
+      "circle-opacity": config.map.poiMarker?.fillOpacity || 0.4,
+      "circle-stroke-width": 2,
+      "circle-stroke-color": ["get", "color"],
+    },
+  });
+  map.addLayer({
+    id: "history-poi-label-layer",
+    type: "symbol",
+    source: "history-poi",
+    layout: {
+      ...visible(layers.poi),
+      "text-field": ["get", "poi"],
+      "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+      "text-size": 12,
+      "text-offset": [0, -1.5],
+      "text-anchor": "bottom",
+    },
+    paint: {
+      "text-color": "#000000",
+      "text-halo-color": "#ffffff",
+      "text-halo-width": 2,
+    },
+  });
 };
 
+/**
+ * Push the current data to the map.
+ *
+ * `map.isStyleLoaded()` is false whenever MapLibre has pending source or tile
+ * work, not merely before the initial style load, so guarding on it silently
+ * dropped updates on large data sets. What actually matters is whether our own
+ * sources exist yet; those are created by `initSourcesAndLayers` on style load.
+ */
 const updateGeoJSON = () => {
-  // `map.isStyleLoaded()` is false whenever MapLibre has pending source or tile
-  // work, not just before the initial style load, so guarding on it silently
-  // drops updates on large data sets. What actually matters is whether our own
-  // sources exist yet; those are created by `initSourcesAndLayers` on style
-  // load.
   if (!map || !map.getSource("history-lines")) return;
   bench.mark("map:updateGeoJSON");
 
-  const linesSource = map.getSource("history-lines");
-  if (linesSource) {
-    const data = getLinesGeoJSON();
-    bench.time("map:setData:lines", () => linesSource.setData(data));
-  }
+  const { layers } = locationStore;
+  const setData = (sourceId, name, build) => {
+    const source = map.getSource(sourceId);
+    if (!source) return;
+    const data = build();
+    bench.time(`map:setData:${name}`, () => source.setData(data));
+  };
 
-  const heatmapSource = map.getSource("history-heatmap");
-  if (heatmapSource) {
-    const data = getHeatmapGeoJSON();
-    bench.time("map:setData:heatmap", () => heatmapSource.setData(data));
-  }
+  setData("history-lines", "lines", getLinesGeoJSON);
+  setData("history-points", "points", getUserPointsGeoJSON);
+  setData("history-poi", "poi", getPoiGeoJSON);
+  setData("accuracy-circles", "accuracyCircles", getAccuracyCirclesGeoJSON);
 
-  if (map.getLayer("history-lines-layer")) {
-    map.setLayoutProperty(
-      "history-lines-layer",
-      "visibility",
-      locationStore.layers.line ? "visible" : "none"
-    );
-  }
-  if (map.getLayer("history-heatmap-layer")) {
-    map.setLayoutProperty(
-      "history-heatmap-layer",
-      "visibility",
-      locationStore.layers.heatmap ? "visible" : "none"
-    );
-  }
-  if (map.getLayer("accuracy-circles-layer")) {
-    map.setLayoutProperty(
-      "accuracy-circles-layer",
-      "visibility",
-      locationStore.layers.last ? "visible" : "none"
-    );
-    map.setLayoutProperty(
-      "accuracy-circles-outline",
-      "visibility",
-      locationStore.layers.last ? "visible" : "none"
-    );
-  }
-  if (map.getLayer("history-points-layer")) {
-    map.setLayoutProperty(
-      "history-points-layer",
-      "visibility",
-      locationStore.layers.points ? "visible" : "none"
-    );
-  }
-  if (map.getLayer("history-poi-layer")) {
-    map.setLayoutProperty(
-      "history-poi-layer",
-      "visibility",
-      locationStore.layers.poi ? "visible" : "none"
-    );
-    map.setLayoutProperty(
-      "history-poi-label-layer",
-      "visibility",
-      locationStore.layers.poi ? "visible" : "none"
-    );
-  }
-
-  const accuracySource = map.getSource("accuracy-circles");
-  if (accuracySource) {
-    const data = getAccuracyCirclesGeoJSON();
-    bench.time("map:setData:accuracyCircles", () =>
-      accuracySource.setData(data)
-    );
-  }
-
-  const pointsSource = map.getSource("history-points");
-  if (pointsSource) {
-    const data = getPointsGeoJSON();
-    bench.time("map:setData:points", () => pointsSource.setData(data));
-  }
+  const visibility = {
+    "history-lines-layer": layers.line,
+    "history-heatmap-layer": layers.heatmap,
+    "history-points-layer": layers.points,
+    "history-poi-layer": layers.poi,
+    "history-poi-label-layer": layers.poi,
+    "accuracy-circles-layer": layers.last,
+    "accuracy-circles-outline": layers.last,
+  };
+  Object.keys(visibility).forEach((layerId) => {
+    if (map.getLayer(layerId)) {
+      map.setLayoutProperty(
+        layerId,
+        "visibility",
+        visibility[layerId] ? "visible" : "none"
+      );
+    }
+  });
 
   bench.measure("map:updateGeoJSON");
 };
@@ -739,25 +648,28 @@ const fitView = () => {
   if (!map) return;
   bench.mark("map:fitView");
   const { layers } = locationStore;
-  const historyLatLngs = locationStore.filteredLocationHistoryLatLngs;
+  // Bounds come from the single derivation pass, so fitting no longer walks
+  // every point.
+  const { bounds } = locationStore.mapGeoData;
 
   if (
     (layers.line || layers.points || layers.poi || layers.heatmap) &&
-    historyLatLngs.length > 0
+    bounds !== null
   ) {
-    const bounds = new maplibregl.LngLatBounds();
-    historyLatLngs.forEach((ll) =>
-      bounds.extend([
-        ll.lng !== undefined ? ll.lng : ll[1],
-        ll.lat !== undefined ? ll.lat : ll[0],
-      ])
+    map.fitBounds(
+      [
+        [bounds.minLng, bounds.minLat],
+        [bounds.maxLng, bounds.maxLat],
+      ],
+      { padding: 50, animate: !isFirstFitView }
     );
-    map.fitBounds(bounds, { padding: 50, animate: !isFirstFitView });
     isFirstFitView = false;
   } else if (layers.last && locationStore.lastLocations.length > 0) {
-    const bounds = new maplibregl.LngLatBounds();
-    locationStore.lastLocations.forEach((l) => bounds.extend([l.lon, l.lat]));
-    map.fitBounds(bounds, {
+    const lastBounds = new maplibregl.LngLatBounds();
+    locationStore.lastLocations.forEach((l) =>
+      lastBounds.extend([l.lon, l.lat])
+    );
+    map.fitBounds(lastBounds, {
       padding: 50,
       maxZoom: config.map.maxNativeZoom || 16,
       animate: !isFirstFitView,
@@ -811,16 +723,10 @@ watch(currentStyle, (newStyle) => {
 // watcher on the derived getter is enough - no deep traversal required.
 watch(() => locationStore.filteredLastLocations, renderMarkers);
 
-// The history getters return freshly built structures whenever the underlying
-// shallowRef is triggered, so identity comparison is sufficient here. Deep
-// watching them would walk the entire data set on every single update.
-watch(
-  [
-    () => locationStore.filteredLocationHistoryLatLngGroups,
-    () => locationStore.filteredLocationHistoryLatLngs,
-  ],
-  updateGeoJSON
-);
+// `mapGeoData` is rebuilt whenever the underlying shallowRef is triggered, so
+// identity comparison is sufficient here. Deep watching it would walk the
+// entire data set on every single update.
+watch(() => locationStore.mapGeoData, updateGeoJSON);
 
 // Layer visibility is a small object of booleans, so deep watching is cheap.
 watch(() => locationStore.layers, updateGeoJSON, { deep: true });
