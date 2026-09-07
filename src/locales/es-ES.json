@@ -60,5 +60,8 @@
   "All users": "All users",
   "{count} users": "{count} users",
   "Part {done} of {total}": "Part {done} of {total}",
-  "Loading data...": "Loading data..."
+  "Loading data...": "Loading data...",
+  "filters.accuracy": "Filtro de precisión",
+  "filters.accuracyOff": "desactivado",
+  "filters.accuracyHint": "Descartar posiciones con una precisión peor que esta."
 }

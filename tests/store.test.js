@@ -1,5 +1,6 @@
 import { describe, expect, test, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
+import { nextTick } from "vue";
 
 import { useLocationStore } from "@/store/location";
 
@@ -425,6 +426,112 @@ describe("incremental derivation matches a full rebuild", () => {
     expect(afterReplace).toEqual(snapshot(store.mapGeoData));
     expect(afterReplace.count).toBe(2);
     expect(afterReplace.bounds?.maxLat).toBe(9);
+  });
+});
+
+describe("setMinAccuracy", () => {
+  /** @type {ReturnType<typeof useLocationStore>} */
+  let store;
+
+  beforeEach(() => {
+    localStorage.clear();
+    setActivePinia(createPinia());
+    store = useLocationStore();
+    store.setLocationHistory({
+      alice: {
+        phone: [
+          { _type: "location", tst: 1, lat: 0, lon: 0, acc: 5 },
+          { _type: "location", tst: 2, lat: 0, lon: 0.001, acc: 80 },
+          { _type: "location", tst: 3, lat: 0, lon: 0.002, acc: 5 },
+        ],
+      },
+    });
+  });
+
+  test("no filter is applied by default", () => {
+    expect(store.minAccuracy).toBe(null);
+    expect(store.mapGeoData.count).toBe(3);
+  });
+
+  test("tightening the threshold re-derives without reloading", () => {
+    store.setMinAccuracy(50);
+
+    expect(store.minAccuracy).toBe(50);
+    expect(store.mapGeoData.count).toBe(2);
+    // The history itself is untouched; only the derivation changed.
+    expect(store.locationHistory.alice.phone.length).toBe(3);
+  });
+
+  test("loosening it brings the points back", () => {
+    store.setMinAccuracy(50);
+    store.setMinAccuracy(100);
+
+    expect(store.mapGeoData.count).toBe(3);
+  });
+
+  test("null and non-positive values mean no filter", () => {
+    store.setMinAccuracy(50);
+    store.setMinAccuracy(null);
+    expect(store.minAccuracy).toBe(null);
+    expect(store.mapGeoData.count).toBe(3);
+
+    store.setMinAccuracy(50);
+    store.setMinAccuracy(0);
+    expect(store.minAccuracy).toBe(null);
+    expect(store.mapGeoData.count).toBe(3);
+  });
+
+  test("a live append is filtered by the current threshold", () => {
+    store.setMinAccuracy(50);
+    store.appendLocationToHistory({
+      _type: "location",
+      username: "alice",
+      device: "phone",
+      tst: 4,
+      lat: 0,
+      lon: 0.003,
+      acc: 90,
+    });
+
+    expect(store.locationHistory.alice.phone.length).toBe(4);
+    expect(store.mapGeoData.count).toBe(2);
+  });
+
+  test("an unchosen threshold still follows the configuration", () => {
+    // Nothing is written until the control is used, so a later change to
+    // `filters.minAccuracy` is not silently overridden by a stale choice.
+    expect(localStorage.getItem("owntracks-min-accuracy")).toBe(null);
+  });
+
+  test("choosing off is remembered as a choice, not as no choice", async () => {
+    store.setMinAccuracy(50);
+    store.setMinAccuracy(null);
+    // The persisted copy is written by a watcher, so it lands next tick.
+    await nextTick();
+
+    expect(store.minAccuracy).toBe(null);
+    expect(localStorage.getItem("owntracks-min-accuracy")).toBe("off");
+  });
+
+  test("a persisted threshold comes back as a number", async () => {
+    store.setMinAccuracy(50);
+    await nextTick();
+    expect(localStorage.getItem("owntracks-min-accuracy")).toBe("50");
+
+    // A fresh store reading the same storage.
+    setActivePinia(createPinia());
+    const reloaded = useLocationStore();
+    expect(reloaded.minAccuracy).toBe(50);
+    expect(typeof reloaded.minAccuracy).toBe("number");
+  });
+
+  test("setting the same value again does no work", () => {
+    store.setMinAccuracy(50);
+    const derived = store.mapGeoData;
+    store.setMinAccuracy(50);
+
+    // Same object: the derivation was not rebuilt and republished.
+    expect(store.mapGeoData).toBe(derived);
   });
 });
 

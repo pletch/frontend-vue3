@@ -60,5 +60,8 @@
   "All users": "All users",
   "{count} users": "{count} users",
   "Part {done} of {total}": "Part {done} of {total}",
-  "Loading data...": "Loading data..."
+  "Loading data...": "Loading data...",
+  "filters.accuracy": "Nøjagtighedsfilter",
+  "filters.accuracyOff": "fra",
+  "filters.accuracyHint": "Kassér positioner med dårligere nøjagtighed end denne."
 }

@@ -60,5 +60,8 @@
   "All users": "All users",
   "{count} users": "{count} users",
   "Part {done} of {total}": "Part {done} of {total}",
-  "Loading data...": "Loading data..."
+  "Loading data...": "Loading data...",
+  "filters.accuracy": "Filter presnosti",
+  "filters.accuracyOff": "vypnuté",
+  "filters.accuracyHint": "Zahodiť pozície s horšou presnosťou, než je táto."
 }

@@ -129,9 +129,15 @@ Initial end date and time (browser timezone) for fetched data.
 
 Minimum accuracy in meters for location points to be rendered & included in the travelled distance.
 
-This filter is disabled by default as accuracies can vary across devices an locations, but you're
+This filter is disabled by default as accuracies can vary across devices and locations, but you're
 encouraged to set it as it can be a simple way to remove outliers and vastly improve the travelled
 distance calculation.
+
+This setting is the starting value for a live control: "Display settings" carries an accuracy slider,
+so the threshold can be tuned against what is actually on screen rather than guessed in advance. The
+choice is remembered per browser and takes precedence over this setting on later visits, in the same
+way as the unit system and layer visibility. Changing it re-derives from the history already loaded,
+so it costs no request.
 
 - Type: [`Number`] or `null`
 - Default: `null`

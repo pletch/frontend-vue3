@@ -72,6 +72,8 @@ Dates are in UTC.
 
 - Added scale bars to the map (`map.controls.scale`), drawn bottom right above the attribution. By default they follow the `units` setting, so there is nothing to configure; `metric` and `imperial` can each be set explicitly to override that, and setting both draws two bars.
 
+- The accuracy filter is now a live control rather than a fixed setting. "Display settings" carries a slider over useful thresholds, so it can be tuned against what is on screen instead of being guessed in advance and deployed. `filters.minAccuracy` becomes its starting value; the choice is then remembered per browser. Changing it re-derives from the history already loaded, so it costs a single pass and no request. Upstream owntracks/frontend#84.
+
 ### Fixed
 
 - `OTLocation.created_at` was declared as a string, but the recorder sends epoch seconds. Nothing broke because the popup that reads it already accepted both, which is how the mistake survived. Found by type checking the benchmark harness.

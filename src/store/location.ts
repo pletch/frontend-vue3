@@ -216,9 +216,63 @@ export const useLocationStore = defineStore("location", () => {
     return excluded;
   });
 
+  // The accuracy filter is a live control rather than a fixed setting: the
+  // useful threshold depends on what is being looked at, and a city walk and
+  // a motorway drive do not want the same one.
+  //
+  // The stored value is the user's explicit choice, kept apart from the
+  // effective threshold: `null` means they have not made one, and
+  // `filters.minAccuracy` still applies. Persisting the effective value
+  // instead would write the configured one into the browser on first load and
+  // then quietly ignore every later change to the configuration - a real
+  // problem for a setting people tune against their own data. "off" is a
+  // choice, and a different thing from having chosen nothing.
+  const minAccuracyChoice = useLocalStorage<number | "off" | null>(
+    "owntracks-min-accuracy",
+    null,
+    {
+      // Spelled out rather than inferred: with a null default the guessed
+      // serializer is a pass-through, which reads a stored threshold back as
+      // the string "50" instead of the number.
+      serializer: {
+        read: (raw: string) => {
+          if (raw === "off") return "off";
+          const parsed = Number(raw);
+          return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+        },
+        write: (value) => String(value),
+      },
+    }
+  );
+
+  /** The threshold in effect: the user's choice, else the configured one. */
+  const minAccuracy = computed<number | null>(() => {
+    if (minAccuracyChoice.value === null) return config.filters.minAccuracy;
+    return minAccuracyChoice.value === "off" ? null : minAccuracyChoice.value;
+  });
+
+  /**
+   * Apply a new accuracy threshold and re-derive everything that depends on
+   * it.
+   *
+   * The derivation is a single pass over the history, so this costs one
+   * rebuild rather than a reload: no request is made and the history itself
+   * is untouched.
+   *
+   * @param {Number | null} value Threshold in metres, or null for no filter
+   */
+  function setMinAccuracy(value: number | null): void {
+    const next = value !== null && value > 0 ? value : null;
+    if (next === minAccuracy.value) return;
+    minAccuracyChoice.value = next === null ? "off" : next;
+    rebuildDerived();
+    if (config.showDistanceTravelled) {
+      updateTravelStats(locationHistory.value);
+    }
+  }
+
   // Configuration that shapes the derivation. Read once: the user config is
   // merged at module evaluation time and does not change at runtime.
-  const { minAccuracy } = config.filters;
   const maxPointDistance =
     typeof config.map.maxPointDistance === "number" &&
     config.map.maxPointDistance > 0
@@ -298,7 +352,7 @@ export const useLocationStore = defineStore("location", () => {
   function extendDerived(track: Track, index: number): void {
     // NaN marks an unreported accuracy, and NaN comparisons are false, so an
     // unreported value is kept just as a missing field used to be.
-    if (minAccuracy !== null && track.acc[index] > minAccuracy) {
+    if (minAccuracy.value !== null && track.acc[index] > minAccuracy.value) {
       return;
     }
 
@@ -798,7 +852,7 @@ export const useLocationStore = defineStore("location", () => {
         let lastLatLng = null;
 
         for (let i = 0; i < track.length; i++) {
-          if (minAccuracy !== null && track.acc[i] > minAccuracy) {
+          if (minAccuracy.value !== null && track.acc[i] > minAccuracy.value) {
             continue;
           }
           const alt = track.alt[i];
@@ -938,6 +992,8 @@ export const useLocationStore = defineStore("location", () => {
     isUserSelected,
     selectedDevice,
     units,
+    minAccuracy,
+    setMinAccuracy,
     layers,
     startDateTime,
     endDateTime,

@@ -63,5 +63,8 @@
   "All users": "All users",
   "{count} users": "{count} users",
   "Part {done} of {total}": "Part {done} of {total}",
-  "Loading data...": "Loading data..."
+  "Loading data...": "Loading data...",
+  "filters.accuracy": "Doğruluk filtresi",
+  "filters.accuracyOff": "kapalı",
+  "filters.accuracyHint": "Bu doğruluktan daha kötü bildiren konumları at."
 }

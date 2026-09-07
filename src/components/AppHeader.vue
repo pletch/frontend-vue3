@@ -61,6 +61,30 @@
             />
             {{ $t(option.label) }}
           </label>
+          <div class="border-t border-gray-200 mt-1 pt-2 px-4 pb-2">
+            <label
+              :for="accuracyInputId"
+              class="flex items-baseline justify-between gap-3 text-sm text-gray-800"
+            >
+              <span class="whitespace-nowrap">{{ $t("filters.accuracy") }}</span>
+              <span class="tabular-nums text-gray-500 whitespace-nowrap">
+                {{ accuracyLabel }}
+              </span>
+            </label>
+            <input
+              :id="accuracyInputId"
+              v-model.number="accuracyIndex"
+              type="range"
+              min="0"
+              :max="ACCURACY_STOPS.length - 1"
+              step="1"
+              class="w-full mt-1 accent-primary cursor-pointer"
+              :title="$t('filters.accuracyHint')"
+            />
+            <p class="mt-1 text-xs text-gray-500 leading-snug">
+              {{ $t("filters.accuracyHint") }}
+            </p>
+          </div>
         </DropdownButton>
       </div>
       <div
@@ -464,6 +488,41 @@ const shortcuts = computed(() => [
 ]);
 
 const isSmallScreen = computed(() => width.value < 1300);
+
+// Accuracy thresholds worth offering, strictest first, so the slider reads
+// left to right as "keep less" to "keep everything". Metres, because that is
+// what the recorder reports; only the label is converted.
+const ACCURACY_STOPS: (number | null)[] = [10, 25, 50, 100, 200, 500, null];
+
+const accuracyInputId = "accuracy-filter";
+
+/**
+ * The slider position for the active threshold.
+ *
+ * A configured value that is not one of the stops snaps to the nearest stop
+ * that keeps at least as much data, so the handle always has somewhere to
+ * sit. The label reads the real value rather than the stop, so the two never
+ * disagree about what is actually being filtered.
+ */
+const accuracyIndex = computed({
+  get(): number {
+    const current = locationStore.minAccuracy;
+    if (current === null) return ACCURACY_STOPS.length - 1;
+    const index = ACCURACY_STOPS.findIndex(
+      (stop) => stop !== null && stop >= current
+    );
+    return index === -1 ? ACCURACY_STOPS.length - 1 : index;
+  },
+  set(index: number) {
+    locationStore.setMinAccuracy(ACCURACY_STOPS[index] ?? null);
+  },
+});
+
+const accuracyLabel = computed(() => {
+  const current = locationStore.minAccuracy;
+  if (current === null) return t("filters.accuracyOff");
+  return `\u2264 ${humanReadableDistance(current, locationStore.units)}`;
+});
 
 const userOptionClass = [
   "flex items-center px-4 py-2 cursor-pointer transition-colors",

@@ -78,5 +78,8 @@
   "All users": "All users",
   "{count} users": "{count} users",
   "Part {done} of {total}": "Part {done} of {total}",
-  "Loading data...": "Loading data..."
+  "Loading data...": "Loading data...",
+  "filters.accuracy": "Accuracy filter",
+  "filters.accuracyOff": "off",
+  "filters.accuracyHint": "Drop fixes reporting worse than this accuracy."
 }
