@@ -128,11 +128,76 @@ export const useLocationStore = defineStore("location", () => {
       selectedUsers.value.length === 0 || selectedUsers.value.includes(user)
     );
   }
-  const units = useLocalStorage("owntracks-units", config.units);
-  const layers = useLocalStorage<Layers>("owntracks-layers", {
-    ...config.map.layers,
-    hideStale: false,
-  });
+  // `units` and `layers` follow the same rule as the accuracy filter: what is
+  // persisted is the choice the user made, never the configured default.
+  // Storing the effective value writes the configuration into the browser on
+  // first load, after which every later change to it is silently ignored.
+
+  // Nothing has ever written this from the interface - there is no units
+  // control - so any value already in storage is a frozen configuration
+  // default rather than a choice, and a new key is the honest way to stop
+  // honouring it. `setUnits` is what makes a choice.
+  const unitsChoice = useLocalStorage<"metric" | "imperial" | null>(
+    "owntracks-units-choice",
+    null,
+    { writeDefaults: false }
+  );
+  const units = computed(() => unitsChoice.value ?? config.units);
+  // Nothing reads the old key any more; do not leave it behind.
+  localStorage.removeItem("owntracks-units");
+
+  /** Layer visibility as configured, before any choice the user has made. */
+  function configuredLayers(): Layers {
+    return { ...config.map.layers, hideStale: false };
+  }
+
+  /**
+   * Reduce a stored layer snapshot to the choices it actually represents.
+   *
+   * Earlier versions persisted every layer, so an existing installation holds
+   * a full snapshot taken from whatever the configuration said the first time
+   * the app was opened. Dropping the entries that match the configuration
+   * turns that back into a set of choices: a layer the user really did turn
+   * off stays off, and one they never touched follows the configuration
+   * again.
+   *
+   * A layer toggled off and back on collapses to "no choice", which renders
+   * identically. Runs on every load and is idempotent.
+   */
+  function migrateStoredLayers(): void {
+    const stored = layersChoice.value;
+    if (!stored || typeof stored !== "object") return;
+
+    const configured = configuredLayers();
+    const chosen: Partial<Layers> = {};
+    (Object.keys(stored) as (keyof Layers)[]).forEach((layer) => {
+      if (
+        layer in configured &&
+        stored[layer] !== undefined &&
+        stored[layer] !== configured[layer]
+      ) {
+        chosen[layer] = stored[layer];
+      }
+    });
+
+    if (Object.keys(chosen).length !== Object.keys(stored).length) {
+      layersChoice.value = chosen;
+    }
+  }
+
+  // Only the layers the user has actually toggled. Everything else follows
+  // the configuration, so a layer added to the schema later shows up for
+  // existing installations instead of being missing from their snapshot.
+  const layersChoice = useLocalStorage<Partial<Layers>>(
+    "owntracks-layers",
+    {},
+    { writeDefaults: false }
+  );
+  migrateStoredLayers();
+  const layers = computed<Layers>(() => ({
+    ...configuredLayers(),
+    ...layersChoice.value,
+  }));
   const startDateTime = ref(formatInitialDate(config.startDateTime));
   const endDateTime = ref(formatInitialDate(config.endDateTime));
   const map = reactive({
@@ -525,9 +590,11 @@ export const useLocationStore = defineStore("location", () => {
     }
     if (query.layers) {
       const activeLayers = query.layers.split(",");
-      (Object.keys(layers.value) as (keyof Layers)[]).forEach((layer) => {
-        layers.value[layer] = activeLayers.includes(layer);
+      const chosen: Partial<Layers> = {};
+      (Object.keys(configuredLayers()) as (keyof Layers)[]).forEach((layer) => {
+        chosen[layer] = activeLayers.includes(layer);
       });
+      layersChoice.value = { ...layersChoice.value, ...chosen };
     }
 
     // A shared link to a past window should stay on that window. Leaving
@@ -949,7 +1016,7 @@ export const useLocationStore = defineStore("location", () => {
   }
 
   function setUnits(val: "metric" | "imperial" | null): void {
-    units.value = val;
+    unitsChoice.value = val;
   }
 
   function setMapLayerVisibility({
@@ -959,7 +1026,7 @@ export const useLocationStore = defineStore("location", () => {
     layer: keyof Layers;
     visibility: boolean;
   }): void {
-    layers.value[layer] = visibility;
+    layersChoice.value = { ...layersChoice.value, [layer]: visibility };
   }
 
   function setMapCenter(center: LatLng): void {

@@ -704,7 +704,7 @@ describe("multi-user selection", () => {
 
     expect([...store.staleFilteredUsers]).toEqual([]);
 
-    store.layers = { ...store.layers, hideStale: true };
+    store.setMapLayerVisibility({ layer: "hideStale", visibility: true });
     expect([...store.staleFilteredUsers]).toEqual(["bob"]);
 
     // An explicit selection overrides the filter, so nothing is excluded.
@@ -736,7 +736,7 @@ describe("multi-user selection", () => {
         lon: 2,
       },
     ];
-    store.layers = { ...store.layers, hideStale: true };
+    store.setMapLayerVisibility({ layer: "hideStale", visibility: true });
 
     // Against the wall clock everything would be stale.
     store.endDateTime = "2026-06-11T00:00:00";
@@ -760,7 +760,7 @@ describe("multi-user selection", () => {
         lon: 1,
       },
     ];
-    store.layers = { ...store.layers, hideStale: true };
+    store.setMapLayerVisibility({ layer: "hideStale", visibility: true });
     store.endDateTime = "2026-12-01T00:00:00";
 
     expect([...store.staleFilteredUsers]).toEqual(["alice"]);

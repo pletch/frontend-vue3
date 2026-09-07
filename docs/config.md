@@ -227,6 +227,11 @@ Heatmap point radius.
 
 Initial visibility of the heatmap layer.
 
+The `map.layers.*` options set what a layer does until it is toggled in
+"Display settings". A layer that has been toggled keeps the chosen visibility
+per browser and no longer follows its option; one that has not been toggled
+follows the option, including after the option is changed.
+
 - Type: [`Boolean`]
 - Default: `false`
 
@@ -568,6 +573,10 @@ shown in m or ft.
 When set to `null` (the default), the unit system is derived from
 [`locale`](#locale): `en-US` defaults to imperial, every other locale defaults
 to metric. Set this option explicitly to override the locale-based guess.
+
+This option applies unless a unit system has been chosen at runtime, in which
+case the choice is remembered per browser and wins. Nothing in the interface
+makes that choice today, so in practice this option is what decides.
 
 - Type: [`String`] (`"metric"` or `"imperial"`) or `null`
 - Default: `null`

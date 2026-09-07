@@ -1,5 +1,6 @@
 import { describe, expect, test, beforeEach, vi } from "vitest";
 import { setActivePinia, createPinia } from "pinia";
+import { nextTick } from "vue";
 
 /**
  * Load the store with a specific user configuration in place.
@@ -19,6 +20,134 @@ async function storeWithConfig(config) {
   store.setLocationHistory({});
   return store;
 }
+
+describe("configuration versus stored choices", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  test("units follow the config when nothing has been chosen", async () => {
+    const store = await storeWithConfig({ units: "imperial" });
+
+    expect(store.units).toBe("imperial");
+    // Nothing written, so a later change to the configuration still applies.
+    expect(localStorage.getItem("owntracks-units-choice")).toBe(null);
+
+    const changed = await storeWithConfig({ units: "metric" });
+    expect(changed.units).toBe("metric");
+  });
+
+  test("a chosen unit system wins over the configuration", async () => {
+    const store = await storeWithConfig({ units: "metric" });
+    store.setUnits("imperial");
+    await nextTick();
+
+    const reloaded = await storeWithConfig({ units: "metric" });
+    expect(reloaded.units).toBe("imperial");
+  });
+
+  test("a value left by an older version is not a choice", async () => {
+    // The old key was written from the configuration, never from the
+    // interface, so it must not survive as a preference.
+    localStorage.setItem("owntracks-units", "imperial");
+    const store = await storeWithConfig({ units: "metric" });
+
+    expect(store.units).toBe("metric");
+    // And it is cleared rather than left to linger.
+    expect(localStorage.getItem("owntracks-units")).toBe(null);
+  });
+
+  test("layers follow the config when nothing is toggled", async () => {
+    const store = await storeWithConfig({ map: { layers: { points: true } } });
+
+    expect(store.layers.points).toBe(true);
+    expect(localStorage.getItem("owntracks-layers")).toBe(null);
+
+    const changed = await storeWithConfig({
+      map: { layers: { points: false } },
+    });
+    expect(changed.layers.points).toBe(false);
+  });
+
+  test("a toggled layer wins over the configuration", async () => {
+    const store = await storeWithConfig({ map: { layers: { points: false } } });
+    store.setMapLayerVisibility({ layer: "points", visibility: true });
+    await nextTick();
+
+    const reloaded = await storeWithConfig({
+      map: { layers: { points: false } },
+    });
+    expect(reloaded.layers.points).toBe(true);
+  });
+
+  test("an older full snapshot keeps only real choices", async () => {
+    // `line` was turned off by hand; the rest matches what was configured.
+    localStorage.setItem(
+      "owntracks-layers",
+      JSON.stringify({
+        last: true,
+        line: false,
+        points: false,
+        heatmap: false,
+        poi: true,
+        hideStale: false,
+      })
+    );
+
+    const store = await storeWithConfig({
+      map: {
+        layers: {
+          last: true,
+          line: true,
+          points: false,
+          heatmap: false,
+          poi: true,
+        },
+      },
+    });
+    await nextTick();
+
+    expect(store.layers.line).toBe(false);
+    expect(
+      JSON.parse(localStorage.getItem("owntracks-layers") ?? "null")
+    ).toEqual({
+      line: false,
+    });
+
+    // And the untouched ones follow the configuration again.
+    const changed = await storeWithConfig({
+      map: {
+        layers: {
+          last: true,
+          line: true,
+          points: true,
+          heatmap: false,
+          poi: true,
+        },
+      },
+    });
+    expect(changed.layers.points).toBe(true);
+    expect(changed.layers.line).toBe(false);
+  });
+
+  test("a layer added later appears for an existing install", async () => {
+    localStorage.setItem("owntracks-layers", JSON.stringify({ line: false }));
+    const store = await storeWithConfig({
+      map: {
+        layers: {
+          last: true,
+          line: true,
+          points: false,
+          heatmap: true,
+          poi: true,
+        },
+      },
+    });
+
+    expect(store.layers.heatmap).toBe(true);
+    expect(store.layers.line).toBe(false);
+  });
+});
 
 describe("mapGeoData configuration handling", () => {
   beforeEach(() => {
