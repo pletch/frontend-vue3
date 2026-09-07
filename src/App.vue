@@ -105,5 +105,3 @@ onMounted(() => {
   updateUrlQuery();
 });
 </script>
-
-<style lang="scss"></style>

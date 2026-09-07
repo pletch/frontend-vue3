@@ -548,5 +548,3 @@ const fitView = () => {
   locationStore.triggerFitView();
 };
 </script>
-
-<style lang="scss" scoped></style>

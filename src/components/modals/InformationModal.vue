@@ -117,5 +117,3 @@ const close = () => {
   locationStore.isInformationModalVisible = false;
 };
 </script>
-
-<style lang="scss" scoped></style>

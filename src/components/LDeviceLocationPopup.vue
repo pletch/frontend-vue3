@@ -339,5 +339,3 @@ const lastSeen = computed(() => {
   return new Date(ms).toLocaleString(config.locale);
 });
 </script>
-
-<style lang="scss" scoped></style>

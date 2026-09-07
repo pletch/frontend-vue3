@@ -64,6 +64,9 @@ Dates are in UTC.
 - Converted every component to TypeScript, so all application code is now type checked.
 - `map.polyline.weight` and `map.polyline.opacity` now work. Both were read by the map but never declared, defaulted or documented, so setting either had no effect.
 
+- Removed the orphaned SCSS files (`src/styles/*.scss`) and the empty `<style lang="scss">` blocks that were the only remaining reason to compile SCSS, along with the `sass` dependency. Styling has been Tailwind-only since the Vue 3 migration; none of these files were imported by anything.
+- Removed the `lint:scss` step from the lint workflow. There is no `lint:scss` script in `package.json`, so the step failed on every push.
+
 ### Fixed
 
 - A shared link's map position was ignored. `populateStateFromQuery` ran in the app's `onMounted`, but Vue mounts children before parents, so the map had already been created from the default centre and zoom. It now runs during setup.
