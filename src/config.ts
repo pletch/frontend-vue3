@@ -56,6 +56,13 @@ const DEFAULT_CONFIG: Config = {
       minPoints: 5000,
       padding: 0.5,
     },
+    controls: {
+      scale: {
+        metric: null,
+        imperial: null,
+        maxWidth: 100,
+      },
+    },
     maxPointDistance: null,
     poiMarker: {
       fillOpacity: 0.2,

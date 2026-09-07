@@ -23,6 +23,7 @@ import type {
   PoiMarker,
   Segment,
 } from "@/geo";
+import { unwrapLongitude } from "@/geo";
 import type { FetchProgress } from "@/api";
 
 /** Byte and slice progress of the history request currently in flight. */
@@ -39,6 +40,8 @@ interface DerivedCursor {
   coordinates: Coordinate[];
   inSegments: boolean;
   lastLatLng: LatLng | null;
+  /** Previous point's longitude, unwrapped; see `unwrapLongitude`. */
+  lastLon: number | null;
 }
 
 /** The derivation as it is built up; `devices` is internal bookkeeping. */
@@ -300,14 +303,25 @@ export const useLocationStore = defineStore("location", () => {
     }
 
     const lat = track.lat[index];
-    const lon = track.lon[index];
+    const rawLon = track.lon[index];
     const { user, device } = track;
     const key = `${user}\u0000${device}`;
     let cursor = derived.devices.get(key);
     if (!cursor) {
-      cursor = { coordinates: [], inSegments: false, lastLatLng: null };
+      cursor = {
+        coordinates: [],
+        inSegments: false,
+        lastLatLng: null,
+        lastLon: null,
+      };
       derived.devices.set(key, cursor);
     }
+
+    // Kept continuous with the point before it, so a track crossing the
+    // antimeridian is drawn across the seam rather than back around the
+    // world. The offset carries across a broken segment on purpose: the whole
+    // device track stays in one longitude frame.
+    const lon = unwrapLongitude(rawLon, cursor.lastLon);
 
     // Break the line rather than drawing across a large jump.
     if (
@@ -347,6 +361,7 @@ export const useLocationStore = defineStore("location", () => {
     }
 
     cursor.lastLatLng = { lat, lng: lon };
+    cursor.lastLon = lon;
     derived.count += 1;
   }
 

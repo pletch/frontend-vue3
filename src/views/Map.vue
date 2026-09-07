@@ -37,7 +37,7 @@
       </div>
     </div>
     <template v-else>
-      <div class="absolute inset-0" ref="mapContainer"></div>
+      <div class="absolute inset-0 h-full w-full" ref="mapContainer"></div>
       <div
         v-if="
           webglIsSoftware &&
@@ -75,11 +75,18 @@ import {
   render,
   getCurrentInstance,
 } from "vue";
-// MapLibre is 285 KB gzipped - roughly three quarters of the bundle - so it is
-// fetched as its own chunk rather than blocking the first paint. `main.js`
-// starts that fetch as the app boots, so it downloads alongside the shell
-// rather than after it, and `onMounted` below waits for it. Only the types are
-// needed at module scope.
+// MapLibre's JavaScript is 285 KB gzipped - roughly three quarters of the
+// bundle - so it is fetched as its own chunk rather than blocking the first
+// paint. `main.js` starts that fetch as the app boots, so it downloads
+// alongside the shell rather than after it, and `onMounted` below waits for
+// it. Only the types are needed at module scope.
+//
+// The stylesheet stays a static import, and is worth the 10 KB it costs on
+// the critical path. Loaded dynamically it is appended to the head after the
+// application's own stylesheet, which inverts the cascade: MapLibre's
+// `.maplibregl-map { position: relative }` then beats Tailwind's `.absolute`
+// on the map container, and the map collapses to nothing.
+import "maplibre-gl/dist/maplibre-gl.css";
 import type MapLibreGL from "maplibre-gl";
 import type {
   Map as MapLibreMap,
@@ -91,7 +98,11 @@ let maplibregl: typeof MapLibreGL;
 import { useLocationStore } from "@/store/location";
 import config from "@/config";
 import { useDark } from "@vueuse/core";
-import { humanReadableSpeed, humanReadableAltitude } from "@/util";
+import {
+  humanReadableSpeed,
+  humanReadableAltitude,
+  getUnitSystem,
+} from "@/util";
 import * as bench from "@/bench";
 import type { Bounds, Coordinate, MapGeoData } from "@/geo";
 import type { Component } from "vue";
@@ -508,6 +519,16 @@ const cullBounds = (): Bounds | null => {
 
   const data = locationStore.mapGeoData;
   if (data.count < (culling.minPoints ?? 5000)) return null;
+
+  // A history that crosses the antimeridian carries longitudes outside the
+  // normal range, which the viewport never does, so culling to the viewport
+  // would drop the far side of the crossing. Rare enough to simply not cull.
+  if (
+    data.bounds !== null &&
+    (data.bounds.minLng < -180 || data.bounds.maxLng > 180)
+  ) {
+    return null;
+  }
 
   const view = viewportBounds();
   // A viewport straddling the antimeridian comes back wrapped, with a west
@@ -998,14 +1019,48 @@ const fitView = () => {
   bench.measure("map:fitView");
 };
 
+// MapLibre draws one unit system per scale bar, so showing both means two
+// controls. They are held here so a change to the units setting can replace
+// them rather than accumulate.
+let scaleControls: InstanceType<typeof MapLibreGL.ScaleControl>[] = [];
+
+/**
+ * Add, remove or replace the scale bars to match the configuration.
+ *
+ * `metric` and `imperial` are null by default, meaning "follow the `units`
+ * setting"; either can be set explicitly to show or hide that bar regardless
+ * of it.
+ */
+const syncScaleControls = () => {
+  if (!map) return;
+  const currentMap = map;
+
+  scaleControls.forEach((control) => currentMap.removeControl(control));
+  scaleControls = [];
+
+  const scale = config.map.controls?.scale ?? {};
+  const units = getUnitSystem(locationStore.units);
+  const wanted: ("metric" | "imperial")[] = [];
+  if (scale.metric ?? units === "metric") wanted.push("metric");
+  if (scale.imperial ?? units === "imperial") wanted.push("imperial");
+
+  wanted.forEach((unit) => {
+    const control = new maplibregl.ScaleControl({
+      unit,
+      maxWidth: scale.maxWidth ?? 100,
+    });
+    // Bottom right, stacked above the attribution: bottom left is where the
+    // user legend sits.
+    currentMap.addControl(control, "bottom-right");
+    scaleControls.push(control);
+  });
+};
+
 onMounted(async () => {
   if (!webglSupported) return;
 
   // Resolves immediately once `main.js`'s warm-up fetch has landed.
-  [maplibregl] = await Promise.all([
-    import("maplibre-gl").then((m) => m.default),
-    import("maplibre-gl/dist/maplibre-gl.css"),
-  ]);
+  maplibregl = (await import("maplibre-gl")).default;
 
   // The component can be torn down while the chunk is in flight.
   if (!mapContainer.value) return;
@@ -1023,6 +1078,8 @@ onMounted(async () => {
   if (!window.matchMedia("(pointer: coarse)").matches) {
     map.addControl(new maplibregl.NavigationControl(), "top-left");
   }
+
+  syncScaleControls();
 
   if (bench.isEnabled()) {
     // The benchmark runner needs to wait for the style before measuring.
@@ -1072,6 +1129,10 @@ onMounted(async () => {
     if (view !== null && !containsBounds(drawn, view)) updateGeoJSON();
   });
 });
+
+// The scale bar follows the units setting unless the configuration overrides
+// it, so it has to be rebuilt when that changes.
+watch(() => locationStore.units, syncScaleControls);
 
 watch(currentStyle, (newStyle) => {
   if (map) {

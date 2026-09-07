@@ -44,6 +44,7 @@ window.owntracks.config = {};
     - [`points`](#maplayerspoints)
   - [`maxNativeZoom`](#mapmaxnativezoom)
   - [`sampling`](#mapsampling)
+  - [`controls.scale`](#mapcontrolsscale)
   - [`culling`](#mapculling)
   - [`directionArrows`](#mapdirectionarrows)
   - [`blockSoftwareWebGL`](#mapblocksoftwarewebgl)
@@ -308,6 +309,28 @@ never costs anything in those cases.
     minPoints: 5000,
     // How far a point may be from the simplified line, in screen pixels.
     tolerancePixels: 1.5,
+  }
+  ```
+
+### `map.controls.scale`
+
+Scale bars on the map, drawn bottom right above the attribution.
+
+`metric` and `imperial` are `null` by default, which means "follow the
+[`units`](#units) setting" - so a metric install gets a metric bar and an
+imperial one gets an imperial bar, with nothing to configure. Set either to
+`true` or `false` to show or hide that bar regardless of the units setting;
+setting both to `true` draws two bars, one above the other.
+
+- Type: [`Object`]
+- Default:
+  ```js
+  {
+    // null follows the `units` setting; true or false overrides it.
+    metric: null,
+    imperial: null,
+    // Widest the bar may be drawn, in pixels.
+    maxWidth: 100,
   }
   ```
 

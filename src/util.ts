@@ -21,7 +21,9 @@ const METERS_PER_MILE = 1609.344;
  *
  * @returns Active unit system
  */
-function getUnitSystem(preference?: string | null): "metric" | "imperial" {
+export function getUnitSystem(
+  preference?: string | null
+): "metric" | "imperial" {
   const p =
     preference !== undefined
       ? preference

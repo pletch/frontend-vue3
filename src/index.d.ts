@@ -41,6 +41,19 @@ interface Config {
       minPoints: number;
       tolerancePixels: number;
     };
+    controls: {
+      /**
+       * Scale bars on the map. `metric` and `imperial` are null by default,
+       * which follows the `units` setting; set either to true or false to
+       * show or hide that bar regardless of it.
+       */
+      scale: {
+        metric: boolean | null;
+        imperial: boolean | null;
+        /** Widest the bar may be drawn, in pixels */
+        maxWidth: number;
+      };
+    };
     culling: {
       /** Whether to restrict drawn geometry to the viewport */
       enabled: boolean;

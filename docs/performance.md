@@ -372,15 +372,26 @@ is actually needed first:
 | `datetime` (moment, picker)  | 102.3 kB  | 33.5 kB | yes                 |
 | `maplibre-gl`                | 1,053.9 kB | 284.9 kB | no                 |
 
-| Bytes before first paint | Before | After |
-| ------------------------ | ------ | ----- |
-| JavaScript, gzipped      | 414 kB | 129 kB |
-| CSS, gzipped             | 17 kB  | 8 kB  |
+| Bytes before first paint | Before | After  |
+| ------------------------ | ------ | ------ |
+| JavaScript, gzipped      | 414 kB | 130 kB |
+| CSS, gzipped             | 18 kB  | 18 kB  |
 
 MapLibre is three quarters of the bundle on its own and is imported dynamically
 by `Map.vue`, so the shell renders without waiting for it. `main.js` starts
 that fetch as the app boots rather than leaving it until the map mounts, which
 would cost an extra round trip.
+
+Its *stylesheet* is deliberately not deferred with it, and the reason is worth
+recording because deferring it looks free and is not. Vite emits a dynamically
+imported stylesheet as its own file, appended to the head after the
+application's own. That inverts the cascade between two single-class rules of
+equal specificity: MapLibre's `.maplibregl-map { position: relative }` starts
+beating Tailwind's `.absolute` on the map container, which then has no
+positioned box and collapses to zero height. The map renders into a 0-pixel
+container - `queryRenderedFeatures` still answers, so it looks fine to
+anything but a screenshot. Keeping the 10 kB on the critical path keeps the
+ordering deterministic.
 
 Moment was the suspect before measuring and turned out not to be the problem:
 60.8 kB raw, 19.7 kB gzipped, because Vite drops its locales. Replacing it

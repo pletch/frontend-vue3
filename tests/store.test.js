@@ -417,6 +417,72 @@ describe("incremental derivation matches a full rebuild", () => {
   });
 });
 
+describe("antimeridian", () => {
+  let store;
+
+  beforeEach(() => {
+    setActivePinia(createPinia());
+    store = useLocationStore();
+  });
+
+  test("a track crossing the seam is unwrapped, not wrapped round", () => {
+    store.setLocationHistory({
+      alice: {
+        phone: [
+          location(1, { lat: -16.5, lon: 178.5 }),
+          location(2, { lat: -16.5, lon: 179.5 }),
+          location(3, { lat: -16.5, lon: -179.5 }),
+          location(4, { lat: -16.5, lon: -178.5 }),
+        ],
+      },
+    });
+
+    const [segment] = store.mapGeoData.segments;
+    const longitudes = segment.coordinates.map(([lng]) => lng);
+
+    expect(longitudes).toEqual([178.5, 179.5, 180.5, 181.5]);
+    // Every step is a degree; none is the 359 that wrapping would produce.
+    const steps = longitudes
+      .slice(1)
+      .map((lng, i) => Math.abs(lng - longitudes[i]));
+    expect(Math.max(...steps)).toBeCloseTo(1, 10);
+  });
+
+  test("the bounds follow the unwrapped track", () => {
+    store.setLocationHistory({
+      alice: {
+        phone: [
+          location(1, { lat: 0, lon: 179 }),
+          location(2, { lat: 0, lon: -179 }),
+        ],
+      },
+    });
+
+    // Not -179..179, which would say the track spans the whole planet.
+    expect(store.mapGeoData.bounds).toMatchObject({
+      minLng: 179,
+      maxLng: 181,
+    });
+  });
+
+  test("a live point appended after a crossing stays in the same frame", () => {
+    store.setLocationHistory({
+      alice: {
+        phone: [
+          location(1, { lat: 0, lon: 179 }),
+          location(2, { lat: 0, lon: -179 }),
+        ],
+      },
+    });
+    store.appendLocationToHistory(
+      location(3, { lat: 0, lon: -178, username: "alice", device: "phone" })
+    );
+
+    const [segment] = store.mapGeoData.segments;
+    expect(segment.coordinates.map(([lng]) => lng)).toEqual([179, 181, 182]);
+  });
+});
+
 describe("multi-user selection", () => {
   let store;
 
