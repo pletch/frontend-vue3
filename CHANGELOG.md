@@ -62,6 +62,9 @@ Dates are in UTC.
 - Moved `puppeteer` from `dependencies` to `devDependencies`; it is a test-harness dependency and was being installed in production installs.
 - Converted the store, API client, `util` and `config` to TypeScript, alongside the pure-logic modules.
 - Converted every component to TypeScript, so all application code is now type checked.
+- Converted the last JavaScript in `src/` - `main`, `router`, `i18n`, `constants` and `logging` - to TypeScript. `logging` gains a `LogLevel` union, so an invalid level is now a compile error rather than a message silently dropped at runtime.
+- Turned on `checkJs` and put the remaining JavaScript (the benchmark harness) and every test file into the type checker's `include`. Nothing outside `src/**/*.ts` and `*.vue` had ever been checked, which was about 3,400 lines.
+- Wired `npm run typecheck` into the test workflow. The script existed but no workflow ran it.
 - `map.polyline.weight` and `map.polyline.opacity` now work. Both were read by the map but never declared, defaulted or documented, so setting either had no effect.
 
 - Removed the orphaned SCSS files (`src/styles/*.scss`) and the empty `<style lang="scss">` blocks that were the only remaining reason to compile SCSS, along with the `sass` dependency. Styling has been Tailwind-only since the Vue 3 migration; none of these files were imported by anything.
@@ -71,6 +74,9 @@ Dates are in UTC.
 
 ### Fixed
 
+- `OTLocation.created_at` was declared as a string, but the recorder sends epoch seconds. Nothing broke because the popup that reads it already accepted both, which is how the mistake survived. Found by type checking the benchmark harness.
+- `getLocationHistoryCount` was declared to take a `TrackHistory`, but the load path passes it the raw API response as a progress counter. It only ever reads `.length`, so both work; the signature now says so.
+- Removed `tests/setup.js`, which required `jest-fetch-mock` - a package that is not a dependency and is not installed. No test configuration referenced the file, so it had simply been dead.
 - A location history crossing the 180th meridian was drawn as a line all the way back around the world. Recorded longitudes wrap into -180..180, so a two-degree step across the seam reads as 358 degrees the other way. Each point's longitude is now shifted by whole turns to sit nearest the one before it, which is what GeoJSON allows longitudes outside the normal range for. Upstream owntracks/frontend#157.
 - A shared link's map position was ignored. `populateStateFromQuery` ran in the app's `onMounted`, but Vue mounts children before parents, so the map had already been created from the default centre and zoom. It now runs during setup.
 - `populateStateFromQuery` assigned the unparsed latitude string to the map state while parsing only the longitude, and the mirror image for longitude, leaving a string where a number was expected.

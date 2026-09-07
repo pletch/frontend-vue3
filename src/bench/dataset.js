@@ -46,13 +46,13 @@ const ACTIVITIES = [
  * filtering, grouping and elevation code all see representative input.
  *
  * @param {Object} options Generation options
- * @param {String} options.user Username
- * @param {String} options.device Device name
- * @param {Number} options.count Number of points to generate
- * @param {Number} options.seed PRNG seed
- * @param {Number} options.endTst Unix timestamp of the newest point
- * @param {Number} options.intervalSeconds Seconds between consecutive points
- * @returns {Object[]} Array of location objects, oldest first
+ * @param {string} options.user Username
+ * @param {string} options.device Device name
+ * @param {number} options.count Number of points to generate
+ * @param {number} options.seed PRNG seed
+ * @param {number} [options.endTst] Unix timestamp of the newest point
+ * @param {number} [options.intervalSeconds] Seconds between points
+ * @returns {OTLocation[]} Array of location objects, oldest first
  */
 export function generateDeviceHistory({
   user,
@@ -98,6 +98,7 @@ export function generateDeviceHistory({
     // Every 50th point gets poor accuracy so accuracy filtering has work to do.
     const acc = i % 50 === 0 ? 200 + random() * 800 : 5 + random() * 25;
 
+    /** @type {OTLocation} */
     const location = {
       _type: "location",
       username: user,
@@ -135,11 +136,11 @@ export function generateDeviceHistory({
  * Generate a full location history structure for several users and devices.
  *
  * @param {Object} [options] Generation options
- * @param {Number} [options.points] Total number of points across all devices
- * @param {Number} [options.users] Number of users
- * @param {Number} [options.devicesPerUser] Devices per user
- * @param {Number} [options.seed] PRNG seed
- * @returns {Object} Location history keyed by user, then device
+ * @param {number} [options.points] Total number of points across all devices
+ * @param {number} [options.users] Number of users
+ * @param {number} [options.devicesPerUser] Devices per user
+ * @param {number} [options.seed] PRNG seed
+ * @returns {import("@/track").RawLocationHistory} Keyed by user, then device
  */
 export function generateLocationHistory({
   points = 100000,
@@ -147,6 +148,7 @@ export function generateLocationHistory({
   devicesPerUser = 1,
   seed = 1,
 } = {}) {
+  /** @type {import("@/track").RawLocationHistory} */
   const history = {};
   const deviceCount = users * devicesPerUser;
   const pointsPerDevice = Math.max(1, Math.floor(points / deviceCount));
@@ -173,10 +175,12 @@ export function generateLocationHistory({
 /**
  * Derive a plausible `/api/0/last` response from a generated history.
  *
- * @param {Object} history Location history keyed by user, then device
- * @returns {Object[]} Array of the most recent location per device
+ * @param {import("@/track").RawLocationHistory} history Keyed by user, then
+ *   device
+ * @returns {OTLocation[]} The most recent location per device
  */
 export function lastLocationsFromHistory(history) {
+  /** @type {OTLocation[]} */
   const lastLocations = [];
   Object.keys(history).forEach((user) => {
     Object.keys(history[user]).forEach((device) => {

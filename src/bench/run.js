@@ -111,10 +111,14 @@ export async function tick(count = 50) {
 
   const track = store.locationHistory[user][device];
   const template = track.at(track.length - 1);
+  if (!template) {
+    throw new Error("Location history is empty, call load() first");
+  }
   const historyPoints = track.length;
 
   bench.mark("bench:liveUpdates");
   for (let i = 0; i < count; i++) {
+    /** @type {OTLocation} */
     const location = {
       ...template,
       tst: template.tst + (i + 1) * 30,

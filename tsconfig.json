@@ -17,10 +17,10 @@
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
 
-    // The conversion is incremental: JavaScript is still resolved and
-    // bundled, it just is not type checked yet.
+    // The application is TypeScript; the remaining JavaScript is the benchmark
+    // harness and the tests, and both are checked.
     "allowJs": true,
-    "checkJs": false,
+    "checkJs": true,
 
     "noEmit": true,
     "skipLibCheck": true,
@@ -28,6 +28,13 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue", "tests/**/*.ts"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.js",
+    "src/**/*.d.ts",
+    "src/**/*.vue",
+    "tests/**/*.ts",
+    "tests/**/*.js"
+  ],
   "exclude": ["node_modules", "dist"]
 }

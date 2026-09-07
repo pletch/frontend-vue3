@@ -7,8 +7,8 @@ import { setActivePinia, createPinia } from "pinia";
  * `@/config` merges `window.owntracks.config` at module evaluation time, so
  * the modules have to be reset and re-imported for each configuration.
  *
- * @param {Object} config User configuration to apply
- * @returns {Promise<Object>} A fresh location store
+ * @param {DeepPartial<Config>} config User configuration to apply
+ * @returns A fresh location store
  */
 async function storeWithConfig(config) {
   vi.resetModules();
@@ -30,9 +30,9 @@ describe("mapGeoData configuration handling", () => {
     store.setLocationHistory({
       alice: {
         phone: [
-          { tst: 1, lat: 1, lon: 1, acc: 10 },
-          { tst: 2, lat: 2, lon: 2, acc: 500 },
-          { tst: 3, lat: 3, lon: 3, acc: 20 },
+          { _type: "location", tst: 1, lat: 1, lon: 1, acc: 10 },
+          { _type: "location", tst: 2, lat: 2, lon: 2, acc: 500 },
+          { _type: "location", tst: 3, lat: 3, lon: 3, acc: 20 },
         ],
       },
     });
@@ -56,8 +56,8 @@ describe("mapGeoData configuration handling", () => {
     store.setLocationHistory({
       alice: {
         phone: [
-          { tst: 1, lat: 1, lon: 1, acc: 10 },
-          { tst: 2, lat: 2, lon: 2, acc: 9999 },
+          { _type: "location", tst: 1, lat: 1, lon: 1, acc: 10 },
+          { _type: "location", tst: 2, lat: 2, lon: 2, acc: 9999 },
         ],
       },
     });
@@ -71,11 +71,11 @@ describe("mapGeoData configuration handling", () => {
     store.setLocationHistory({
       alice: {
         phone: [
-          { tst: 1, lat: 0, lon: 0 },
-          { tst: 2, lat: 0.001, lon: 0 },
+          { _type: "location", tst: 1, lat: 0, lon: 0 },
+          { _type: "location", tst: 2, lat: 0.001, lon: 0 },
           // Roughly 1100 km away, far beyond the 1000 m threshold.
-          { tst: 3, lat: 10, lon: 0 },
-          { tst: 4, lat: 10.001, lon: 0 },
+          { _type: "location", tst: 3, lat: 10, lon: 0 },
+          { _type: "location", tst: 4, lat: 10.001, lon: 0 },
         ],
       },
     });
@@ -93,8 +93,8 @@ describe("mapGeoData configuration handling", () => {
     store.setLocationHistory({
       alice: {
         phone: [
-          { tst: 1, lat: 0, lon: 0 },
-          { tst: 2, lat: 10, lon: 0 },
+          { _type: "location", tst: 1, lat: 0, lon: 0 },
+          { _type: "location", tst: 2, lat: 10, lon: 0 },
         ],
       },
     });
@@ -113,8 +113,7 @@ describe("incremental derivation under a filtering configuration", () => {
    * Compare segments and counts, which is what the split and filter logic
    * affects.
    *
-   * @param {Object} data `mapGeoData` value
-   * @returns {Object} Plain, comparable representation
+   * @param {import("@/geo").MapGeoData} data `mapGeoData` value
    */
   function snapshot(data) {
     return {
@@ -129,6 +128,7 @@ describe("incremental derivation under a filtering configuration", () => {
     const store = await storeWithConfig({ map: { maxPointDistance: 1000 } });
 
     // Three clusters separated by jumps far beyond the threshold.
+    /** @type {{ lat: number, lon: number }[]} */
     const points = [];
     [0, 10, 20].forEach((base) => {
       for (let i = 0; i < 5; i++) {
@@ -137,6 +137,7 @@ describe("incremental derivation under a filtering configuration", () => {
     });
     points.forEach((p, i) =>
       store.appendLocationToHistory({
+        _type: "location",
         username: "alice",
         device: "phone",
         tst: 1000 + i * 30,
@@ -157,6 +158,7 @@ describe("incremental derivation under a filtering configuration", () => {
 
     for (let i = 0; i < 30; i++) {
       store.appendLocationToHistory({
+        _type: "location",
         username: "alice",
         device: "phone",
         tst: 1000 + i * 30,

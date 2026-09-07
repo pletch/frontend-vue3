@@ -38,8 +38,8 @@ describe("API", () => {
 
   test("getDevices", async () => {
     fetchMocker.mockResponses(
-      [JSON.stringify({ results: ["phone", "tablet"] })],
-      [JSON.stringify({ results: ["laptop"] })]
+      JSON.stringify({ results: ["phone", "tablet"] }),
+      JSON.stringify({ results: ["laptop"] })
     );
 
     const devices = await api.getDevices(["foo", "bar"]);
@@ -168,39 +168,33 @@ describe("API", () => {
 
   test("getLocationHistory", async () => {
     fetchMocker.mockResponses(
-      [
-        JSON.stringify({
-          count: 1,
-          data: [
-            {
-              topic: "owntracks/foo/phone",
-            },
-          ],
-          status: 200,
-        }),
-      ],
-      [
-        JSON.stringify({
-          count: 1,
-          data: [
-            {
-              topic: "owntracks/foo/tablet",
-            },
-          ],
-          status: 200,
-        }),
-      ],
-      [
-        JSON.stringify({
-          count: 1,
-          data: [
-            {
-              topic: "owntracks/bar/laptop",
-            },
-          ],
-          status: 200,
-        }),
-      ]
+      JSON.stringify({
+        count: 1,
+        data: [
+          {
+            topic: "owntracks/foo/phone",
+          },
+        ],
+        status: 200,
+      }),
+      JSON.stringify({
+        count: 1,
+        data: [
+          {
+            topic: "owntracks/foo/tablet",
+          },
+        ],
+        status: 200,
+      }),
+      JSON.stringify({
+        count: 1,
+        data: [
+          {
+            topic: "owntracks/bar/laptop",
+          },
+        ],
+        status: 200,
+      })
     );
 
     const locationHistory = await api.getLocationHistory(
@@ -312,12 +306,13 @@ describe("streaming progress", () => {
    *
    * @param {String} text Response body
    * @param {Object} [options] Options
-   * @param {Number} [options.chunkSize] Bytes per chunk
-   * @param {String} [options.contentLength] Content-Length header to report
+   * @param {number} [options.chunkSize] Bytes per chunk
+   * @param {string | null} [options.contentLength] Content-Length to report
    * @returns {Uint8Array} The encoded body
    */
   function stubStreamingFetch(text, { chunkSize = 8, contentLength } = {}) {
     const encoded = new TextEncoder().encode(text);
+    /** @type {Uint8Array[]} */
     const chunks = [];
     for (let i = 0; i < encoded.length; i += chunkSize) {
       chunks.push(encoded.slice(i, i + chunkSize));
@@ -329,6 +324,7 @@ describe("streaming progress", () => {
         ok: true,
         status: 200,
         headers: {
+          /** @param {string} name Header name */
           get: (name) =>
             name.toLowerCase() === "content-length"
               ? contentLength === undefined
@@ -356,9 +352,10 @@ describe("streaming progress", () => {
   /**
    * Fetch a history with a progress collector attached.
    *
-   * @returns {Promise<Object>} Result and collected progress chunks
+   * @returns Result and collected progress chunks
    */
   async function fetchHistory() {
+    /** @type {import("@/api").FetchProgress[]} */
     const chunks = [];
     const data = await api.getUserDeviceLocationHistory(
       "foo",

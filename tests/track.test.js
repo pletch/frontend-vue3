@@ -2,7 +2,13 @@ import { describe, expect, test } from "vitest";
 
 import { Track, tracksFromHistory } from "@/track";
 
+/**
+ * @param {number} tst Timestamp
+ * @param {Partial<OTLocation>} [extra] Additional properties
+ * @returns {OTLocation} Minimal location
+ */
 const loc = (tst, extra = {}) => ({
+  _type: "location",
   tst,
   lat: 51 + tst / 10000,
   lon: -0.1 + tst / 10000,
@@ -39,27 +45,32 @@ describe("Track", () => {
 
   test("keeps latitude and longitude exact", () => {
     const track = new Track();
-    track.push({ tst: 1, lat: 51.4778912345, lon: -0.0106779876 });
+    track.push({
+      _type: "location",
+      tst: 1,
+      lat: 51.4778912345,
+      lon: -0.0106779876,
+    });
 
     // Coordinates must survive a round trip without drifting; a 32-bit float
     // would lose roughly a metre here.
-    expect(track.at(0).lat).toBe(51.4778912345);
-    expect(track.at(0).lon).toBe(-0.0106779876);
+    expect(track.at(0)?.lat).toBe(51.4778912345);
+    expect(track.at(0)?.lon).toBe(-0.0106779876);
   });
 
   test("keeps timestamps exact beyond 2038", () => {
     const track = new Track();
     const tst = 2 ** 31 + 86400; // Past the 32-bit signed limit.
-    track.push({ tst, lat: 1, lon: 2 });
-    expect(track.at(0).tst).toBe(tst);
+    track.push({ _type: "location", tst, lat: 1, lon: 2 });
+    expect(track.at(0)?.tst).toBe(tst);
   });
 
   test("distinguishes a missing field from a zero", () => {
     const track = new Track();
-    track.push({ tst: 1, lat: 1, lon: 2, vel: 0 });
-    track.push({ tst: 2, lat: 1, lon: 2 });
+    track.push({ _type: "location", tst: 1, lat: 1, lon: 2, vel: 0 });
+    track.push({ _type: "location", tst: 2, lat: 1, lon: 2 });
 
-    expect(track.at(0).vel).toBe(0);
+    expect(track.at(0)?.vel).toBe(0);
     expect(track.at(1)).not.toHaveProperty("vel");
     expect(track.at(1)).not.toHaveProperty("acc");
   });
@@ -70,8 +81,8 @@ describe("Track", () => {
       track.push(loc(i));
     }
     expect(track.length).toBe(5000);
-    expect(track.at(0).tst).toBe(0);
-    expect(track.at(4999).tst).toBe(4999);
+    expect(track.at(0)?.tst).toBe(0);
+    expect(track.at(4999)?.tst).toBe(4999);
     expect(track.lastTst()).toBe(4999);
   });
 
@@ -80,7 +91,7 @@ describe("Track", () => {
     for (let i = 0; i < 100; i++) {
       track.push(loc(i, { motionactivities: ["walking", "running"] }));
     }
-    expect(track.at(50).motionactivities).toEqual(["walking", "running"]);
+    expect(track.at(50)?.motionactivities).toEqual(["walking", "running"]);
     // One slot per location, not one array per location.
     expect(track.activity.BYTES_PER_ELEMENT).toBe(2);
   });
@@ -91,7 +102,7 @@ describe("Track", () => {
       track.push(loc(i, i === 42 ? { poi: "Office" } : {}));
     }
     expect(track.poi.size).toBe(1);
-    expect(track.at(42).poi).toBe("Office");
+    expect(track.at(42)?.poi).toBe("Office");
     expect(track.at(41)).not.toHaveProperty("poi");
   });
 
@@ -108,14 +119,14 @@ describe("Track", () => {
     track.insert(1, loc(20));
 
     expect(track.length).toBe(3);
-    expect([0, 1, 2].map((i) => track.at(i).tst)).toEqual([10, 20, 30]);
+    expect([0, 1, 2].map((i) => track.at(i)?.tst)).toEqual([10, 20, 30]);
   });
 
   test("moves points of interest when inserting before them", () => {
     const track = Track.from("a", "d", [loc(10), loc(30, { poi: "Shop" })]);
     track.insert(1, loc(20));
 
-    expect(track.at(2).poi).toBe("Shop");
+    expect(track.at(2)?.poi).toBe("Shop");
     expect(track.at(1)).not.toHaveProperty("poi");
   });
 
@@ -123,14 +134,14 @@ describe("Track", () => {
     const track = Track.from("a", "d", [loc(10)]);
     track.insert(5, loc(20));
     expect(track.length).toBe(2);
-    expect(track.at(1).tst).toBe(20);
+    expect(track.at(1)?.tst).toBe(20);
   });
 
   test("set() overwrites in place, including clearing a POI", () => {
     const track = Track.from("a", "d", [loc(10, { poi: "Old" })]);
     track.set(0, loc(10, { vel: 42 }));
 
-    expect(track.at(0).vel).toBe(42);
+    expect(track.at(0)?.vel).toBe(42);
     expect(track.at(0)).not.toHaveProperty("poi");
   });
 
@@ -139,7 +150,7 @@ describe("Track", () => {
     expect(track.length).toBe(3);
     expect(track.user).toBe("bob");
     expect(track.device).toBe("watch");
-    expect([0, 1, 2].map((i) => track.at(i).tst)).toEqual([1, 2, 3]);
+    expect([0, 1, 2].map((i) => track.at(i)?.tst)).toEqual([1, 2, 3]);
   });
 });
 

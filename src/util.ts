@@ -192,13 +192,22 @@ export function humanReadableAltitude(
   })} ${i18n.global.t(unitKey)}`;
 }
 
+/** A history whose leaves report a length: a `Track` or an array of fixes. */
+type CountableHistory = Record<User, Record<Device, { length: number }>>;
+
 /**
  * Get the total number of locations from a nested location history.
+ *
+ * Takes anything shaped like a history whose leaves have a length: both the
+ * columnar `TrackHistory` the app holds and the `RawLocationHistory` the API
+ * returns, which is what the load path counts before converting.
  *
  * @param locationHistory Location history
  * @returns Total number of locations
  */
-export function getLocationHistoryCount(locationHistory: TrackHistory): number {
+export function getLocationHistoryCount(
+  locationHistory: CountableHistory
+): number {
   return Object.keys(locationHistory)
     .map((user) =>
       Object.keys(locationHistory[user])

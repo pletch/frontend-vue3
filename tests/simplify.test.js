@@ -21,6 +21,7 @@ describe("toleranceForZoom", () => {
 
 describe("simplifyPath", () => {
   test("returns short paths untouched", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const path = [
       [0, 0],
       [1, 1],
@@ -29,6 +30,7 @@ describe("simplifyPath", () => {
   });
 
   test("returns the input when the tolerance is zero", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const path = [
       [0, 0],
       [0.001, 0],
@@ -38,6 +40,7 @@ describe("simplifyPath", () => {
   });
 
   test("always keeps the first and last point", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const path = [];
     for (let i = 0; i < 100; i++) {
       path.push([i * 0.0001, 0]);
@@ -49,6 +52,7 @@ describe("simplifyPath", () => {
   });
 
   test("collapses a straight line to its endpoints", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const path = [];
     for (let i = 0; i <= 50; i++) {
       path.push([i * 0.01, 0]);
@@ -60,6 +64,7 @@ describe("simplifyPath", () => {
   });
 
   test("keeps a corner that exceeds the tolerance", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const path = [
       [0, 0],
       [0.5, 0.5],
@@ -71,6 +76,7 @@ describe("simplifyPath", () => {
   });
 
   test("drops a deviation smaller than the tolerance", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const path = [
       [0, 0],
       [0.5, 0.000001],
@@ -83,6 +89,7 @@ describe("simplifyPath", () => {
   });
 
   test("reduces more as the tolerance grows", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const path = [];
     for (let i = 0; i < 500; i++) {
       path.push([i * 0.001, Math.sin(i / 5) * 0.01]);
@@ -95,6 +102,7 @@ describe("simplifyPath", () => {
   });
 
   test("never returns more points than it was given", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const path = [];
     for (let i = 0; i < 1000; i++) {
       path.push([Math.random(), Math.random()]);
@@ -103,6 +111,7 @@ describe("simplifyPath", () => {
   });
 
   test("preserves input order", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const path = [];
     for (let i = 0; i < 200; i++) {
       path.push([i * 0.01, Math.sin(i / 10)]);
@@ -116,6 +125,7 @@ describe("simplifyPath", () => {
   test("handles a long path without overflowing the stack", () => {
     // A recursive implementation dies here; this is the case sampling exists
     // for in the first place.
+    /** @type {import("@/geo").Coordinate[]} */
     const path = [];
     for (let i = 0; i < 200000; i++) {
       path.push([i * 0.00001, Math.sin(i / 1000) * 0.5]);
@@ -127,6 +137,7 @@ describe("simplifyPath", () => {
 
 describe("decimatePoints", () => {
   test("returns the input when disabled", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const points = [
       [0, 0],
       [0, 0],
@@ -135,6 +146,7 @@ describe("decimatePoints", () => {
   });
 
   test("keeps one point per occupied cell", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const points = [
       [0.1, 0.1],
       [0.2, 0.2],
@@ -148,6 +160,7 @@ describe("decimatePoints", () => {
   });
 
   test("keeps the first point seen in a cell", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const points = [
       [0.1, 0.1],
       [0.9, 0.9],
@@ -156,6 +169,7 @@ describe("decimatePoints", () => {
   });
 
   test("keeps everything when cells are smaller than the spacing", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const points = [
       [0, 0],
       [1, 0],
@@ -165,6 +179,7 @@ describe("decimatePoints", () => {
   });
 
   test("handles negative coordinates", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const points = [
       [-1.1, -1.1],
       [-1.2, -1.2],

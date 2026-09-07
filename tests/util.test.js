@@ -120,6 +120,7 @@ describe("distanceBetweenCoordinates", () => {
 });
 
 describe("humanReadableDistance", () => {
+  /** @type {Config["units"]} */
   let originalUnits;
   beforeEach(() => {
     originalUnits = config.units;
@@ -170,6 +171,7 @@ describe("humanReadableDistance", () => {
 });
 
 describe("humanReadableSpeed", () => {
+  /** @type {Config["units"]} */
   let originalUnits;
   beforeEach(() => {
     originalUnits = config.units;
@@ -195,6 +197,7 @@ describe("humanReadableSpeed", () => {
 });
 
 describe("humanReadableAltitude", () => {
+  /** @type {Config["units"]} */
   let originalUnits;
   beforeEach(() => {
     originalUnits = config.units;
@@ -248,7 +251,11 @@ describe("buildUserColorMap", () => {
   });
 
   test("ignores empty entries", () => {
-    expect(buildUserColorMap(["alice", null, "", undefined]).size).toBe(1);
+    // Deliberately ragged input, as a roster from the API can be.
+    const roster = /** @type {User[]} */ (
+      /** @type {unknown} */ (["alice", null, "", undefined])
+    );
+    expect(buildUserColorMap(roster).size).toBe(1);
   });
 
   test("handles an empty roster", () => {

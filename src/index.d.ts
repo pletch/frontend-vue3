@@ -167,8 +167,11 @@ interface OTLocation {
   /**
    * Identifies the time at which the message is constructed, as opposed to
    * `tst` which is the timestamp of the GPS fix.
+   *
+   * The recorder sends epoch seconds; declared as a string too because the
+   * popup that reads it has always accepted both.
    */
-  created_at?: string;
+  created_at?: number | string;
   /** Device name */
   device?: Device;
   /** Timestamp in a readable format */

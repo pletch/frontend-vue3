@@ -6,19 +6,19 @@ import { useLocationStore } from "@/store/location";
 /**
  * Read the timestamps of a track back out, for comparison.
  *
- * @param {Track} track Track to read
- * @returns {Number[]} Timestamps, oldest first
+ * @param {import("@/track").Track} track Track to read
+ * @returns {(number | undefined)[]} Timestamps, oldest first
  */
 function timestamps(track) {
-  return [...Array(track.length)].map((_, i) => track.at(i).tst);
+  return [...Array(track.length)].map((_, i) => track.at(i)?.tst);
 }
 
 /**
  * Build a minimal location object.
  *
- * @param {Number} tst Timestamp
- * @param {Object} [extra] Additional properties
- * @returns {Object} Location
+ * @param {number} tst Timestamp
+ * @param {Partial<OTLocation>} [extra] Additional properties
+ * @returns {OTLocation} Location
  */
 function location(tst, extra = {}) {
   return {
@@ -34,6 +34,7 @@ function location(tst, extra = {}) {
 }
 
 describe("appendLocationToHistory", () => {
+  /** @type {ReturnType<typeof useLocationStore>} */
   let store;
 
   beforeEach(() => {
@@ -83,7 +84,7 @@ describe("appendLocationToHistory", () => {
 
     const track = store.locationHistory.alice.phone;
     expect(timestamps(track)).toEqual([100, 200, 300]);
-    expect(track.at(1).lat).toBe(99);
+    expect(track.at(1)?.lat).toBe(99);
   });
 
   test("publishes a new derivation so consumers see the change", () => {
@@ -127,7 +128,7 @@ describe("appendLocationToHistory", () => {
 
     store.appendLocationToHistory(location(200));
     expect(store.selectedDeviceHistory.length).toBe(2);
-    expect(store.selectedDeviceHistory.track.at(1).tst).toBe(200);
+    expect(store.selectedDeviceHistory.track?.at(1)?.tst).toBe(200);
   });
 
   test("only a wholesale replacement bumps historyReloadVersion", () => {
@@ -141,6 +142,7 @@ describe("appendLocationToHistory", () => {
 });
 
 describe("mapGeoData", () => {
+  /** @type {ReturnType<typeof useLocationStore>} */
   let store;
 
   beforeEach(() => {
@@ -163,8 +165,8 @@ describe("mapGeoData", () => {
     store.setLocationHistory({
       alice: {
         phone: [
-          { tst: 1, lat: 10, lon: 20, acc: 5 },
-          { tst: 2, lat: 11, lon: 21, acc: 5 },
+          { _type: "location", tst: 1, lat: 10, lon: 20, acc: 5 },
+          { _type: "location", tst: 2, lat: 11, lon: 21, acc: 5 },
         ],
       },
     });
@@ -180,7 +182,9 @@ describe("mapGeoData", () => {
 
   test("drops a single-point segment from the line output", () => {
     store.setLocationHistory({
-      alice: { phone: [{ tst: 1, lat: 10, lon: 20, acc: 5 }] },
+      alice: {
+        phone: [{ _type: "location", tst: 1, lat: 10, lon: 20, acc: 5 }],
+      },
     });
 
     expect(store.mapGeoData.segments).toHaveLength(0);
@@ -192,10 +196,10 @@ describe("mapGeoData", () => {
   test("groups points by user across devices", () => {
     store.setLocationHistory({
       alice: {
-        phone: [{ tst: 1, lat: 1, lon: 1 }],
-        tablet: [{ tst: 2, lat: 2, lon: 2 }],
+        phone: [{ _type: "location", tst: 1, lat: 1, lon: 1 }],
+        tablet: [{ _type: "location", tst: 2, lat: 2, lon: 2 }],
       },
-      bob: { phone: [{ tst: 3, lat: 3, lon: 3 }] },
+      bob: { phone: [{ _type: "location", tst: 3, lat: 3, lon: 3 }] },
     });
 
     const { pointsByUser } = store.mapGeoData;
@@ -207,9 +211,9 @@ describe("mapGeoData", () => {
     store.setLocationHistory({
       alice: {
         phone: [
-          { tst: 1, lat: 10, lon: -5 },
-          { tst: 2, lat: -3, lon: 40 },
-          { tst: 3, lat: 7, lon: 12 },
+          { _type: "location", tst: 1, lat: 10, lon: -5 },
+          { _type: "location", tst: 2, lat: -3, lon: 40 },
+          { _type: "location", tst: 3, lat: 7, lon: 12 },
         ],
       },
     });
@@ -226,8 +230,8 @@ describe("mapGeoData", () => {
     store.setLocationHistory({
       alice: {
         phone: [
-          { tst: 1, lat: 1, lon: 2 },
-          { tst: 2, lat: 3, lon: 4, poi: "Home" },
+          { _type: "location", tst: 1, lat: 1, lon: 2 },
+          { _type: "location", tst: 2, lat: 3, lon: 4, poi: "Home" },
         ],
       },
     });
@@ -241,8 +245,8 @@ describe("mapGeoData", () => {
     store.setLocationHistory({
       alice: {
         phone: [
-          { tst: 1, lat: 1, lon: 2 },
-          { tst: 2, lat: 3, lon: 4 },
+          { _type: "location", tst: 1, lat: 1, lon: 2 },
+          { _type: "location", tst: 2, lat: 3, lon: 4 },
         ],
       },
     });
@@ -250,21 +254,22 @@ describe("mapGeoData", () => {
     // The same coordinate objects back both outputs, rather than each layer
     // allocating its own copy.
     const { segments, pointsByUser } = store.mapGeoData;
-    expect(segments[0].coordinates[0]).toBe(pointsByUser.get("alice")[0]);
+    expect(segments[0].coordinates[0]).toBe(pointsByUser.get("alice")?.[0]);
   });
 
   test("picks up a live append", () => {
     store.setLocationHistory({
       alice: {
         phone: [
-          { tst: 1, lat: 1, lon: 2 },
-          { tst: 2, lat: 3, lon: 4 },
+          { _type: "location", tst: 1, lat: 1, lon: 2 },
+          { _type: "location", tst: 2, lat: 3, lon: 4 },
         ],
       },
     });
     expect(store.mapGeoData.count).toBe(2);
 
     store.appendLocationToHistory({
+      _type: "location",
       username: "alice",
       device: "phone",
       tst: 3,
@@ -277,6 +282,7 @@ describe("mapGeoData", () => {
 });
 
 describe("incremental derivation matches a full rebuild", () => {
+  /** @type {ReturnType<typeof useLocationStore>} */
   let store;
 
   beforeEach(() => {
@@ -289,8 +295,7 @@ describe("incremental derivation matches a full rebuild", () => {
   /**
    * Snapshot the published derivation in a comparable form.
    *
-   * @param {Object} data `mapGeoData` value
-   * @returns {Object} Plain, comparable representation
+   * @param {import("@/geo").MapGeoData} data `mapGeoData` value
    */
   function snapshot(data) {
     return {
@@ -316,6 +321,7 @@ describe("incremental derivation matches a full rebuild", () => {
     const locations = [];
     for (let i = 0; i < 50; i++) {
       locations.push({
+        _type: "location",
         username: "alice",
         device: "phone",
         tst: 1000 + i * 30,
@@ -345,6 +351,7 @@ describe("incremental derivation matches a full rebuild", () => {
       devices.forEach((device, d) => {
         for (let i = 0; i < 15; i++) {
           store.appendLocationToHistory({
+            _type: "location",
             username,
             device,
             tst: (tst += 30),
@@ -364,6 +371,7 @@ describe("incremental derivation matches a full rebuild", () => {
   test("agrees after an out-of-order point forces a rebuild", () => {
     [100, 200, 400].forEach((tst) =>
       store.appendLocationToHistory({
+        _type: "location",
         username: "alice",
         device: "phone",
         tst,
@@ -373,6 +381,7 @@ describe("incremental derivation matches a full rebuild", () => {
     );
     // Lands between existing points, so the tail of the derivation is invalid.
     store.appendLocationToHistory({
+      _type: "location",
       username: "alice",
       device: "phone",
       tst: 300,
@@ -394,6 +403,7 @@ describe("incremental derivation matches a full rebuild", () => {
   test("agrees after replacing a point at an existing timestamp", () => {
     [100, 200].forEach((tst) =>
       store.appendLocationToHistory({
+        _type: "location",
         username: "alice",
         device: "phone",
         tst,
@@ -402,6 +412,7 @@ describe("incremental derivation matches a full rebuild", () => {
       })
     );
     store.appendLocationToHistory({
+      _type: "location",
       username: "alice",
       device: "phone",
       tst: 200,
@@ -413,11 +424,12 @@ describe("incremental derivation matches a full rebuild", () => {
     store.notifyHistoryChanged();
     expect(afterReplace).toEqual(snapshot(store.mapGeoData));
     expect(afterReplace.count).toBe(2);
-    expect(afterReplace.bounds.maxLat).toBe(9);
+    expect(afterReplace.bounds?.maxLat).toBe(9);
   });
 });
 
 describe("antimeridian", () => {
+  /** @type {ReturnType<typeof useLocationStore>} */
   let store;
 
   beforeEach(() => {
@@ -484,6 +496,7 @@ describe("antimeridian", () => {
 });
 
 describe("multi-user selection", () => {
+  /** @type {ReturnType<typeof useLocationStore>} */
   let store;
 
   beforeEach(() => {
@@ -498,9 +511,30 @@ describe("multi-user selection", () => {
       carol: ["watch"],
     };
     store.lastLocations = [
-      { username: "alice", device: "phone", tst: 1, lat: 1, lon: 1 },
-      { username: "bob", device: "phone", tst: 2, lat: 2, lon: 2 },
-      { username: "carol", device: "watch", tst: 3, lat: 3, lon: 3 },
+      {
+        _type: "location",
+        username: "alice",
+        device: "phone",
+        tst: 1,
+        lat: 1,
+        lon: 1,
+      },
+      {
+        _type: "location",
+        username: "bob",
+        device: "phone",
+        tst: 2,
+        lat: 2,
+        lon: 2,
+      },
+      {
+        _type: "location",
+        username: "carol",
+        device: "watch",
+        tst: 3,
+        lat: 3,
+        lon: 3,
+      },
     ];
   });
 
@@ -526,11 +560,39 @@ describe("multi-user selection", () => {
     const fresh = now / 1000 - 60;
     const old = now / 1000 - 5 * 24 * 60 * 60;
     store.lastLocations = [
-      { username: "alice", device: "phone", tst: fresh, lat: 1, lon: 1 },
+      {
+        _type: "location",
+        username: "alice",
+        device: "phone",
+        tst: fresh,
+        lat: 1,
+        lon: 1,
+      },
       // Two devices, only one of them recent: alice stays listed.
-      { username: "alice", device: "tablet", tst: old, lat: 1, lon: 1 },
-      { username: "bob", device: "phone", tst: old, lat: 2, lon: 2 },
-      { username: "carol", device: "watch", tst: fresh, lat: 3, lon: 3 },
+      {
+        _type: "location",
+        username: "alice",
+        device: "tablet",
+        tst: old,
+        lat: 1,
+        lon: 1,
+      },
+      {
+        _type: "location",
+        username: "bob",
+        device: "phone",
+        tst: old,
+        lat: 2,
+        lon: 2,
+      },
+      {
+        _type: "location",
+        username: "carol",
+        device: "watch",
+        tst: fresh,
+        lat: 3,
+        lon: 3,
+      },
     ];
 
     expect([...store.staleFilteredUsers]).toEqual([]);
@@ -550,8 +612,22 @@ describe("multi-user selection", () => {
     const inWindow = new Date("2026-06-10T12:00:00").getTime() / 1000;
     const beforeWindow = new Date("2026-06-05T12:00:00").getTime() / 1000;
     store.lastLocations = [
-      { username: "alice", device: "phone", tst: inWindow, lat: 1, lon: 1 },
-      { username: "bob", device: "phone", tst: beforeWindow, lat: 2, lon: 2 },
+      {
+        _type: "location",
+        username: "alice",
+        device: "phone",
+        tst: inWindow,
+        lat: 1,
+        lon: 1,
+      },
+      {
+        _type: "location",
+        username: "bob",
+        device: "phone",
+        tst: beforeWindow,
+        lat: 2,
+        lon: 2,
+      },
     ];
     store.layers = { ...store.layers, hideStale: true };
 
@@ -569,6 +645,7 @@ describe("multi-user selection", () => {
     vi.setSystemTime(now);
     store.lastLocations = [
       {
+        _type: "location",
         username: "alice",
         device: "phone",
         tst: new Date("2026-09-01T12:00:00").getTime() / 1000,
@@ -658,6 +735,7 @@ describe("multi-user selection", () => {
 });
 
 describe("populateStateFromQuery", () => {
+  /** @type {ReturnType<typeof useLocationStore>} */
   let store;
 
   beforeEach(() => {

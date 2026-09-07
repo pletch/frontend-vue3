@@ -29,6 +29,20 @@ function detectEnabled() {
 }
 
 /**
+ * One row of `results()`: a series and its aggregated timings.
+ *
+ * @typedef {Object} BenchRow
+ * @property {string} name Series name
+ * @property {number} calls How many samples were recorded
+ * @property {number} total Total duration in milliseconds
+ * @property {number} mean Mean duration in milliseconds
+ * @property {number} min Shortest sample in milliseconds
+ * @property {number} max Longest sample in milliseconds
+ * @property {number} items Total items processed across the samples
+ * @property {number | null} usPerItem Microseconds per item, or null
+ */
+
+/**
  * Whether benchmarking is currently active.
  *
  * @returns {Boolean} True if timings are being recorded
@@ -141,7 +155,7 @@ export async function timeAsync(name, fn, countFn) {
 /**
  * Get the collected timings as plain objects, slowest total first.
  *
- * @returns {Object[]} One row per series
+ * @returns {BenchRow[]} One row per series, slowest first
  */
 export function results() {
   return [...samples.values()]
@@ -163,7 +177,7 @@ export function results() {
 /**
  * Print the collected timings to the console as a table.
  *
- * @returns {Object[]} The same rows returned by `results()`
+ * @returns {BenchRow[]} The same rows returned by `results()`
  */
 export function report() {
   const rows = results();

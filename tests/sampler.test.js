@@ -5,8 +5,8 @@ import { createSampler } from "@/sampler";
 /**
  * Build map data in the shape the store publishes.
  *
- * @param {Number[][]} coordinates Coordinates as [lng, lat]
- * @returns {Object} `mapGeoData`-shaped object
+ * @param {import("@/geo").Coordinate[]} coordinates Coordinates as [lng, lat]
+ * @returns {import("@/sampler").SampleInput & { count: number }} Map data
  */
 function dataFrom(coordinates) {
   return {
@@ -19,10 +19,11 @@ function dataFrom(coordinates) {
 /**
  * A gently curving path, so simplification has something to remove.
  *
- * @param {Number} n Number of points
- * @returns {Number[][]} Coordinates
+ * @param {number} n Number of points
+ * @returns {import("@/geo").Coordinate[]} Coordinates
  */
 function path(n) {
+  /** @type {import("@/geo").Coordinate[]} */
   const coordinates = [];
   for (let i = 0; i < n; i++) {
     coordinates.push([i * 0.0002, Math.sin(i / 40) * 0.01]);
@@ -46,7 +47,7 @@ describe("createSampler", () => {
     const result = sampler.sample(data, 0.001);
 
     expect(result.segments[0].coordinates.length).toBeLessThan(2000);
-    expect(result.pointsByUser.get("alice").length).toBeLessThan(2000);
+    expect(result.pointsByUser.get("alice")?.length).toBeLessThan(2000);
   });
 
   test("keeps the first and last point of a segment", () => {

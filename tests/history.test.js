@@ -72,18 +72,23 @@ describe("buildDateSlices", () => {
 });
 
 describe("mergeHistorySlice", () => {
-  const loc = (tst) => ({ tst, lat: 1, lon: 2 });
+  /**
+   * @param {number} tst Timestamp
+   * @returns {OTLocation} Minimal location
+   */
+  const loc = (tst) => ({ _type: "location", tst, lat: 1, lon: 2 });
 
   /**
    * Read the timestamps of a track back out, for comparison.
    *
    * @param {Track} track Track to read
-   * @returns {Number[]} Timestamps, oldest first
+   * @returns {(number | undefined)[]} Timestamps, oldest first
    */
   const timestamps = (track) =>
-    [...Array(track.length)].map((_, i) => track.at(i).tst);
+    [...Array(track.length)].map((_, i) => track.at(i)?.tst);
 
   test("creates a track for a device that was not present", () => {
+    /** @type {import("@/track").TrackHistory} */
     const history = {};
     const ranges = mergeHistorySlice(history, {
       alice: { phone: [loc(1), loc(2)] },
@@ -142,6 +147,7 @@ describe("mergeHistorySlice", () => {
   });
 
   test("keeps devices and users independent", () => {
+    /** @type {import("@/track").TrackHistory} */
     const history = {
       alice: { phone: Track.from("alice", "phone", [loc(1)]) },
     };

@@ -59,6 +59,7 @@ describe("bench harness", () => {
   });
 
   test("approximateSize() handles cycles", () => {
+    /** @type {{ name: string, self?: unknown }} */
     const object = { name: "a" };
     object.self = object;
     expect(bench.approximateSize(object)).toBeGreaterThan(0);
@@ -154,7 +155,8 @@ describe("bench dataset", () => {
 
     expect(lastLocations).toHaveLength(2);
     lastLocations.forEach((location) => {
-      const deviceHistory = history[location.username][location.device];
+      const deviceHistory =
+        history[location.username ?? ""][location.device ?? ""];
       expect(location.tst).toBe(deviceHistory[deviceHistory.length - 1].tst);
     });
   });

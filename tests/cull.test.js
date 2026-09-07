@@ -42,6 +42,7 @@ describe("containsBounds", () => {
 
 describe("cullPath", () => {
   test("a path entirely inside is returned unchanged, by reference", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const path = [
       [1, 1],
       [2, 2],
@@ -175,6 +176,7 @@ describe("cullPoints", () => {
   });
 
   test("returns the original array when nothing is dropped", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const points = [
       [1, 1],
       [9, 9],
@@ -183,6 +185,7 @@ describe("cullPoints", () => {
   });
 
   test("points on the boundary are inside", () => {
+    /** @type {import("@/geo").Coordinate[]} */
     const edge = [
       [0, 0],
       [10, 10],
