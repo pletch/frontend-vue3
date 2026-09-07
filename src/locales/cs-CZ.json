@@ -63,5 +63,9 @@
   "Loading data...": "Loading data...",
   "filters.accuracy": "Filtr přesnosti",
   "filters.accuracyOff": "vypnuto",
-  "filters.accuracyHint": "Zahodit pozice s horší přesností, než je tato."
+  "filters.accuracyHint": "Zahodit pozice s horší přesností, než je tato.",
+  "units.label": "Jednotky",
+  "units.metric": "Metrické",
+  "units.imperial": "Imperiální",
+  "units.automatic": "Automaticky ({system})"
 }

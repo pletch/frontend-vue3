@@ -63,5 +63,9 @@
   "Loading data...": "Loading data...",
   "filters.accuracy": "Nøjagtighedsfilter",
   "filters.accuracyOff": "fra",
-  "filters.accuracyHint": "Kassér positioner med dårligere nøjagtighed end denne."
+  "filters.accuracyHint": "Kassér positioner med dårligere nøjagtighed end denne.",
+  "units.label": "Enheder",
+  "units.metric": "Metrisk",
+  "units.imperial": "Imperialt",
+  "units.automatic": "Automatisk ({system})"
 }

@@ -61,6 +61,30 @@
             />
             {{ $t(option.label) }}
           </label>
+          <div class="border-t border-gray-200 mt-1 pt-2 px-4 pb-1">
+            <label
+              :for="unitsSelectId"
+              class="flex items-center justify-between gap-3 text-sm text-gray-800"
+            >
+              <span class="whitespace-nowrap">{{ $t("units.label") }}</span>
+              <select
+                :id="unitsSelectId"
+                :value="locationStore.unitsChoice ?? ''"
+                class="rounded border border-gray-300 bg-white px-1 py-0.5 text-sm cursor-pointer"
+                @change="
+                  onUnitsChange(($event.target as HTMLSelectElement).value)
+                "
+              >
+                <option
+                  v-for="option in unitsOptions"
+                  :key="option.value"
+                  :value="option.value"
+                >
+                  {{ option.label }}
+                </option>
+              </select>
+            </label>
+          </div>
           <div class="border-t border-gray-200 mt-1 pt-2 px-4 pb-2">
             <label
               :for="accuracyInputId"
@@ -329,7 +353,7 @@ import {
 import DatePicker from "vue-datepicker-next";
 import "vue-datepicker-next/index.css";
 import DropdownButton from "@/components/DropdownButton.vue";
-import { humanReadableDistance } from "@/util";
+import { humanReadableDistance, getUnitSystem } from "@/util";
 import moment from "moment";
 
 const locationStore = useLocationStore();
@@ -493,6 +517,34 @@ const isSmallScreen = computed(() => width.value < 1300);
 // left to right as "keep less" to "keep everything". Metres, because that is
 // what the recorder reports; only the label is converted.
 const ACCURACY_STOPS: (number | null)[] = [10, 25, 50, 100, 200, 500, null];
+
+const unitsSelectId = "units-system";
+
+/**
+ * Apply a units selection. The empty value is "automatic", meaning no choice
+ * at all rather than a third unit system.
+ *
+ * @param value Selected option value
+ */
+const onUnitsChange = (value: string) => {
+  locationStore.setUnits(
+    value === "metric" || value === "imperial" ? value : null
+  );
+};
+
+// "Automatic" is the absence of a choice: the unit system then comes from
+// `config.units`, or from the locale when that is unset too. Naming what it
+// resolves to saves the reader guessing.
+const unitsOptions = computed(() => [
+  {
+    value: "",
+    label: t("units.automatic", {
+      system: t(`units.${getUnitSystem(config.units)}`),
+    }),
+  },
+  { value: "metric", label: t("units.metric") },
+  { value: "imperial", label: t("units.imperial") },
+]);
 
 const accuracyInputId = "accuracy-filter";
 

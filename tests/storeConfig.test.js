@@ -46,6 +46,20 @@ describe("configuration versus stored choices", () => {
     expect(reloaded.units).toBe("imperial");
   });
 
+  test("choosing automatic clears the choice", async () => {
+    const store = await storeWithConfig({ units: "imperial" });
+    store.setUnits("metric");
+    await nextTick();
+    expect(store.unitsChoice).toBe("metric");
+
+    store.setUnits(null);
+    await nextTick();
+
+    expect(store.unitsChoice).toBe(null);
+    expect(store.units).toBe("imperial");
+    expect(localStorage.getItem("owntracks-units-choice")).toBe(null);
+  });
+
   test("a value left by an older version is not a choice", async () => {
     // The old key was written from the configuration, never from the
     // interface, so it must not survive as a preference.

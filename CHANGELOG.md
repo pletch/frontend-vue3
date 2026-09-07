@@ -74,6 +74,8 @@ Dates are in UTC.
 
 - The accuracy filter is now a live control rather than a fixed setting. "Display settings" carries a slider over useful thresholds, so it can be tuned against what is on screen instead of being guessed in advance and deployed. `filters.minAccuracy` becomes its starting value; the choice is then remembered per browser. Changing it re-derives from the history already loaded, so it costs a single pass and no request. Upstream owntracks/frontend#84.
 
+- Added a units control to "Display settings". It offers metric, imperial, and automatic - automatic being the absence of a choice, where the unit system comes from the `units` option or, failing that, the locale. The option label names what automatic resolves to. Everything follows immediately: the accuracy filter's label, the scale bar, popups and travel statistics.
+
 ### Fixed
 
 - `OTLocation.created_at` was declared as a string, but the recorder sends epoch seconds. Nothing broke because the popup that reads it already accepted both, which is how the mistake survived. Found by type checking the benchmark harness.

@@ -574,9 +574,9 @@ When set to `null` (the default), the unit system is derived from
 [`locale`](#locale): `en-US` defaults to imperial, every other locale defaults
 to metric. Set this option explicitly to override the locale-based guess.
 
-This option applies unless a unit system has been chosen at runtime, in which
-case the choice is remembered per browser and wins. Nothing in the interface
-makes that choice today, so in practice this option is what decides.
+This option applies unless a unit system has been chosen in "Display settings",
+in which case the choice is remembered per browser and wins. The control's
+"automatic" entry clears the choice, handing the decision back to this option.
 
 - Type: [`String`] (`"metric"` or `"imperial"`) or `null`
 - Default: `null`

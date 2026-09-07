@@ -81,5 +81,9 @@
   "Loading data...": "Loading data...",
   "filters.accuracy": "Accuracy filter",
   "filters.accuracyOff": "off",
-  "filters.accuracyHint": "Drop fixes reporting worse than this accuracy."
+  "filters.accuracyHint": "Drop fixes reporting worse than this accuracy.",
+  "units.label": "Units",
+  "units.metric": "Metric",
+  "units.imperial": "Imperial",
+  "units.automatic": "Automatic ({system})"
 }

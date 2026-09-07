@@ -66,5 +66,9 @@
   "Loading data...": "Loading data...",
   "filters.accuracy": "Doğruluk filtresi",
   "filters.accuracyOff": "kapalı",
-  "filters.accuracyHint": "Bu doğruluktan daha kötü bildiren konumları at."
+  "filters.accuracyHint": "Bu doğruluktan daha kötü bildiren konumları at.",
+  "units.label": "Birimler",
+  "units.metric": "Metrik",
+  "units.imperial": "İngiliz",
+  "units.automatic": "Otomatik ({system})"
 }

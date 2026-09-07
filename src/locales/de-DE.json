@@ -66,5 +66,9 @@
   "Loading data...": "Loading data...",
   "filters.accuracy": "Genauigkeitsfilter",
   "filters.accuracyOff": "aus",
-  "filters.accuracyHint": "Positionen mit schlechterer Genauigkeit verwerfen."
+  "filters.accuracyHint": "Positionen mit schlechterer Genauigkeit verwerfen.",
+  "units.label": "Einheiten",
+  "units.metric": "Metrisch",
+  "units.imperial": "Imperial",
+  "units.automatic": "Automatisch ({system})"
 }

@@ -137,12 +137,14 @@ export const useLocationStore = defineStore("location", () => {
   // control - so any value already in storage is a frozen configuration
   // default rather than a choice, and a new key is the honest way to stop
   // honouring it. `setUnits` is what makes a choice.
-  const unitsChoice = useLocalStorage<"metric" | "imperial" | null>(
+  const storedUnitsChoice = useLocalStorage<"metric" | "imperial" | null>(
     "owntracks-units-choice",
     null,
     { writeDefaults: false }
   );
-  const units = computed(() => unitsChoice.value ?? config.units);
+  /** What the user picked, or null when they have picked nothing. */
+  const unitsChoice = computed(() => storedUnitsChoice.value);
+  const units = computed(() => storedUnitsChoice.value ?? config.units);
   // Nothing reads the old key any more; do not leave it behind.
   localStorage.removeItem("owntracks-units");
 
@@ -1016,7 +1018,7 @@ export const useLocationStore = defineStore("location", () => {
   }
 
   function setUnits(val: "metric" | "imperial" | null): void {
-    unitsChoice.value = val;
+    storedUnitsChoice.value = val;
   }
 
   function setMapLayerVisibility({
@@ -1059,6 +1061,7 @@ export const useLocationStore = defineStore("location", () => {
     isUserSelected,
     selectedDevice,
     units,
+    unitsChoice,
     minAccuracy,
     setMinAccuracy,
     layers,
