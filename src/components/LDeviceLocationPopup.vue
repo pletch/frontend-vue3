@@ -1,6 +1,8 @@
 <template>
   <div ref="rootElement" class="px-2 py-1 min-w-[200px] max-w-[350px]">
-    <div class="inline-block relative -top-1 text-primary font-bold text-lg">
+    <div
+      class="inline-block relative -top-1 pr-12 text-primary font-bold text-lg"
+    >
       {{ deviceName }}
     </div>
     <div class="flex mt-2">

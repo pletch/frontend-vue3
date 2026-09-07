@@ -1190,6 +1190,46 @@ onUnmounted(() => {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
+/* MapLibre's close button is an unstyled 12px glyph pinned to the corner with
+   no padding of its own. That is just about workable against the library's
+   default content padding; against ours, which is zero, it lands on the
+   border radius and all but disappears. Give it a real target and something
+   to see. */
+.maplibre-popup-custom .maplibregl-popup-close-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  top: 0.25rem;
+  right: 0.25rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  font-size: 1.25rem;
+  line-height: 1;
+  background-color: #f3f4f6;
+  color: #4b5563;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.maplibre-popup-custom .maplibregl-popup-close-button:hover {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+
+/* MapLibre focuses this when the popup opens (`focusAfterOpen`), and Chrome
+   treats that as focus-visible even when the popup was opened by a mouse
+   click - so this ring shows on every popup, not only for keyboard users.
+   That is why the button carries its own background above rather than
+   relying on the ring to be seen: the ring is then a small addition to
+   something already legible, instead of the only thing marking the corner. */
+.maplibre-popup-custom .maplibregl-popup-close-button:focus-visible {
+  outline: 2px solid var(--color-primary, #3f51b5);
+  outline-offset: 1px;
+  color: #111827;
+}
+
 .playback-popup .maplibregl-popup-content {
   padding: 6px 10px;
   border-radius: 0.5rem;
